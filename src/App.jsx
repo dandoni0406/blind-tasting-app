@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { sessionDB } from './storage.js';
 
 // ── Shared constants & helpers (extracted from cellar app) ───────
 const RED = "#8B2635", GOLD = "#9A7020";
