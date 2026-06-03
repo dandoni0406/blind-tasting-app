@@ -398,6 +398,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [editingGroupVal, setEditingGroupVal] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
+  const [showCodeShare, setShowCodeShare] = useState(false); // 초대 코드 공유 오버레이
   const [filterGroupId, setFilterGroupId] = useState("all");
   const [dashParticipant, setDashParticipant] = useState(null);
   const [darkMode, setDarkMode] = useState(()=>{
@@ -506,7 +507,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     unsubRef.current = sessionDB.subscribe(s.id, (latest)=>{
       setActive(latest);
     });
-    setView(sAnswerMode==="prefill" ? "prep" : "taste");
+    setShowCodeShare(true); // 초대 코드 먼저 보여주기
   }
   function lockAnswersAndStart() {
     setActive(prev=>({...prev, answersLocked:true}));
@@ -880,6 +881,38 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
 
     return (
       <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
+
+        {/* ── 초대 코드 공유 오버레이 ── */}
+        {showCodeShare&&active&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+            <div style={{background:"#fff",borderRadius:20,padding:28,width:"100%",maxWidth:380,textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,.3)"}}>
+              <div style={{fontSize:36,marginBottom:8}}>🍷</div>
+              <div style={{fontSize:18,fontWeight:800,color:RED,marginBottom:4}}>세션이 시작됐습니다!</div>
+              <div style={{fontSize:13,color:"#888",marginBottom:20}}>아래 코드를 참가자들에게 공유하세요</div>
+              <div style={{background:"#F7F4F0",borderRadius:12,padding:"16px 20px",marginBottom:16}}>
+                <div style={{fontSize:11,color:"#aaa",marginBottom:6}}>초대 코드</div>
+                <div style={{fontSize:40,fontWeight:900,letterSpacing:8,color:RED}}>{active.accessCode}</div>
+              </div>
+              <button onClick={()=>{
+                const url=`${window.location.origin}?join=${active.accessCode}`;
+                if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",text:`초대 코드: ${active.accessCode}`,url});}
+                else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
+              }}
+                style={{width:"100%",background:RED,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10}}>
+                🔗 초대 링크 공유하기
+              </button>
+              <button onClick={()=>{
+                setShowCodeShare(false);
+                setView(active.answerMode==="prefill" ? "prep" : "taste");
+              }}
+                style={{width:"100%",background:"#fff",color:"#555",border:"1px solid #ddd",borderRadius:12,padding:"13px",fontSize:14,fontWeight:600,cursor:"pointer"}}>
+                계속하기 →
+              </button>
+              <div style={{fontSize:11,color:"#aaa",marginTop:10}}>나중에도 화면 상단 코드에서 공유 가능</div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div style={{background:RED,color:"#fff",padding:"16px 18px"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
