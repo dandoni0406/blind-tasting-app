@@ -15,6 +15,17 @@ const GRAPE_LIST = [...GRAPE_CATEGORIES.red, ...GRAPE_CATEGORIES.white];
 const REGION_GRAPES = {"부르고뉴": ["피노누아", "샤르도네", "알리고테", "가메"], "보르도": ["카베르네소비뇽", "메를로", "카베르네프랑", "프티베르도", "세미용", "소비뇽블랑"], "론": ["시라/쉬라즈", "그르나슈", "무르베드르", "비오니에", "마르산", "루산"], "샹파뉴": ["피노누아", "샤르도네", "피노뮈니에"], "루아르": ["슈냉블랑", "소비뇽블랑", "카베르네프랑", "뮈스카데"], "알자스": ["리슬링", "게뷔르츠트라미너", "피노그리지오", "피노블랑"], "쥐라": ["사바냉", "샤르도네", "풀사르", "트루소"], "보졸레": ["가메"], "프로방스": ["그르나슈", "무르베드르", "생소", "시라/쉬라즈"], "피에몬테": ["네비올로", "바르베라", "돌체토", "모스카토"], "토스카나": ["산지오베제", "카베르네소비뇽", "메를로"], "베네토": ["코르비나", "가르가네가", "글레라"], "시칠리아": ["네렐로마스칼레제", "카리칸테", "네로다볼라", "카타라토"], "모젤": ["리슬링"], "라인가우": ["리슬링", "피노누아"], "팔츠": ["리슬링"], "리오하": ["템프라니요", "가르나차", "그라치아노"], "리베라 델 두에로": ["템프라니요"], "프리오라트": ["가르나차", "카리냥"], "리아스 바이샤스": ["알바리뇨"], "시에라 데 그레도스": ["가르나차"], "캘리포니아": ["카베르네소비뇽", "샤르도네", "피노누아", "진판델"], "오리건": ["피노누아", "샤르도네"], "사우스오스트레일리아": ["시라/쉬라즈", "카베르네소비뇽", "그르나슈", "리슬링"], "말버러": ["소비뇽블랑", "피노누아"], "센트럴 오타고": ["피노누아"], "멘도사": ["말벡", "카베르네소비뇽", "샤르도네"], "에게해": ["아시르티코"], "북부그리스": ["크시노마브로"], "도루": ["투리가나시오날", "투리가프란카"]};
 const REGION_CLASSES = {"부르고뉴": ["regional", "village", "premiercru", "grandcru"], "보르도": ["other"], "샹파뉴": ["regional", "premiercru", "grandcru"], "알자스": ["regional", "grandcru"], "루아르": ["regional", "village"], "론": ["regional", "village"], "리오하": ["other"], "피에몬테": ["regional", "village"], "토스카나": ["regional", "other"]};
 const DEFAULT_CLASSES = ["regional", "other"];
+// ── 토스트 알림 (라이브러리 없이 동작) ──────────────────────────
+function toast(message, type="info", duration=3000) {
+  if(typeof document === "undefined") return;
+  const el = document.createElement("div");
+  el.textContent = message;
+  const bg = type==="error"?"#991B1B":type==="warn"?"#92400E":"#2E7D32";
+  el.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${bg};color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.25);max-width:360px;text-align:center;pointer-events:none;`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), duration);
+}
+
 // ── AI 정성 평가 루브릭 ──────────────────────────────────────────
 // Criterion 1: 감각 묘사 해상도 (Aroma & Flavor)       8점
 // Criterion 2: 구조감 및 텍스처 (Structure & Texture)  12점 ← 핵심
@@ -383,8 +394,9 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [showSettings, setShowSettings] = useState(false);
   const [showGroupMgr, setShowGroupMgr] = useState(false);
   const [showRubric, setShowRubric] = useState(false);    // group manager panel
-  const [editingGroupId, setEditingGroupId] = useState(null); // group being renamed
+  const [editingGroupId, setEditingGroupId] = useState(null);
   const [editingGroupVal, setEditingGroupVal] = useState("");
+  const [newGroupName, setNewGroupName] = useState("");
   const [filterGroupId, setFilterGroupId] = useState("all");
   const [dashParticipant, setDashParticipant] = useState(null);
   const [darkMode, setDarkMode] = useState(()=>{
@@ -402,9 +414,65 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     setConfirmModal({message, onYes:()=>{setConfirmModal(null);res(true);}, onNo:()=>{setConfirmModal(null);res(false);}});
   }); // "all"|"none"|groupId
   const GROUP_COLORS = ["#8B2635","#2E7D32","#1E6FA0","#7a5c10","#6B21A8","#C0392B"];
-  const [active, setActive] = useState(null); // active session object
+  const [active, setActive] = useState(null);
   const [wineIdx, setWineIdx] = useState(0);
   const [pIdx, setPIdx] = useState(0);
+
+  // ── 멀티플레이어 / 초대 코드 ─────────────────────────────────────
+  const [joinCode, setJoinCode] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get("join") || "";
+  });
+  const [joinName, setJoinName] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [isParticipant, setIsParticipant] = useState(false); // 참가자 모드
+  const [myName, setMyName] = useState("");                   // 이 기기의 참가자 이름
+  const unsubRef = useRef(null); // Firestore 리스너 해제용
+
+  function genCode() {
+    return Array.from({length:6}, ()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*32)]).join("");
+  }
+
+  // URL ?join=XXXXXX 있으면 바로 join 화면으로
+  useEffect(()=>{
+    const p = new URLSearchParams(window.location.search);
+    const code = p.get("join");
+    if(code) { setView("join"); setJoinCode(code.toUpperCase()); }
+    return ()=>{ if(unsubRef.current) unsubRef.current(); };
+  },[]);
+
+  async function joinSession() {
+    if(!joinCode.trim() || !joinName.trim()) { setJoinError("코드와 이름을 모두 입력해주세요."); return; }
+    setJoinError("찾는 중...");
+    try {
+      const session = await sessionDB.findByCode(joinCode.trim());
+      if(!session) { setJoinError("세션을 찾을 수 없습니다. 코드를 다시 확인해주세요."); return; }
+      const name = joinName.trim();
+      // 참가자 등록: guesses에 이름 추가 (없으면)
+      const updated = {...session};
+      if(!updated.participants.includes(name)) {
+        updated.participants = [...updated.participants, name];
+      }
+      if(!updated.guesses[name]) updated.guesses[name] = {};
+      await sessionDB.save(updated);
+      setMyName(name);
+      setIsParticipant(true);
+      setActive(updated);
+      setView("taste");
+      setWineIdx(0);
+      setPIdx(updated.participants.indexOf(name));
+      // 실시간 리스너 시작
+      if(unsubRef.current) unsubRef.current();
+      unsubRef.current = sessionDB.subscribe(session.id, (latest) => {
+        setActive(latest);
+        if(latest.revealed) setView("summary");
+      });
+      // URL 정리
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch(e) {
+      setJoinError("오류: " + e.message);
+    }
+  }
 
   // Setup form
   const [sName, setSName] = useState("");
@@ -425,12 +493,18 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     const s = {
       id:String(Date.now()), name:sName||"블라인드 테이스팅",
       date:new Date().toISOString(), participants:parts, wineCount:sCount,
+      accessCode:genCode(),
       groupId:sGroupId, partyMode:sPartyMode, answerMode:sAnswerMode, rubric:sRubric,
       guesses:{}, answers:{}, revealed:false, answersLocked:false, createdAt:new Date().toISOString(),
     };
     parts.forEach(p=>{s.guesses[p]={};});
     setActive(s); setWineIdx(0); setPIdx(0);
-    // Prefill mode → host enters answers first; Reveal mode → straight to tasting
+    // Firestore 저장 + 실시간 리스너
+    sessionDB.save(s).catch(e=>console.warn("세션 저장 실패:", e));
+    if(unsubRef.current) unsubRef.current();
+    unsubRef.current = sessionDB.subscribe(s.id, (latest)=>{
+      setActive(latest);
+    });
     setView(sAnswerMode==="prefill" ? "prep" : "taste");
   }
   function lockAnswersAndStart() {
@@ -729,6 +803,54 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     return {ACountry,ARegion,AVillage,AClassification,AGrape,AVintage};
   };
 
+  // ════ JOIN VIEW (참가자 입장 화면) ════
+  if(view==="join") {
+    return (
+      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+        <div style={{width:"100%",maxWidth:380}}>
+          <div style={{textAlign:"center",marginBottom:32}}>
+            <div style={{fontSize:48,marginBottom:8}}>🍷</div>
+            <div style={{fontSize:22,fontWeight:800,color:RED}}>블라인드 테이스팅</div>
+            <div style={{fontSize:14,color:"#888",marginTop:4}}>초대 코드로 세션에 참여하세요</div>
+          </div>
+          <div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 2px 16px rgba(0,0,0,.08)"}}>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>초대 코드 (6자리)</div>
+              <input
+                value={joinCode}
+                onChange={e=>setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6))}
+                onKeyDown={e=>{if(e.key==="Enter")document.getElementById("join-name-input")?.focus();}}
+                placeholder="예: WK7M2P"
+                style={{width:"100%",border:"2px solid #ddd",borderRadius:8,padding:"10px 14px",fontSize:20,fontWeight:700,letterSpacing:4,textAlign:"center",outline:"none",boxSizing:"border-box"}}
+              />
+            </div>
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>내 이름</div>
+              <input
+                id="join-name-input"
+                value={joinName}
+                onChange={e=>setJoinName(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter")joinSession();}}
+                placeholder="예: 인우"
+                style={{width:"100%",border:"2px solid #ddd",borderRadius:8,padding:"10px 14px",fontSize:15,outline:"none",boxSizing:"border-box"}}
+              />
+            </div>
+            {joinError&&<div style={{color:joinError.includes("중")||joinError.includes("찾는")?"#888":RED,fontSize:12,marginBottom:12,textAlign:"center"}}>{joinError}</div>}
+            <button onClick={joinSession}
+              style={{width:"100%",background:RED,color:"#fff",border:"none",borderRadius:10,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+              입장하기 →
+            </button>
+          </div>
+          <div style={{textAlign:"center",marginTop:16}}>
+            <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#aaa",fontSize:12,cursor:"pointer"}}>
+              내 세션 목록으로 돌아가기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ════ LIST VIEW ════
   if(view==="list") {
     // Derive filtered sessions
@@ -752,9 +874,9 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             <span style={{fontSize:17,fontWeight:700}}>🎯 블라인드 테이스팅</span>
             <div style={{marginLeft:"auto",display:"flex",gap:8}}>
               <button onClick={()=>{setView("dashboard");setDashParticipant(tasters[0]||null);}}
-                style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",fontSize:15,cursor:"pointer"}}>📊</button>
+                style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:3}}>📊<span style={{fontSize:10}}>통계</span></button>
               <button onClick={()=>{setShowGroupMgr(v=>!v);setShowSettings(false);}}
-                style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",fontSize:15,cursor:"pointer"}}>👥</button>
+                style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:3}}>👥<span style={{fontSize:10}}>모임</span></button>
               <button onClick={()=>{
                 const next=!darkMode;
                 setDarkMode(next);
@@ -906,26 +1028,27 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               </div>
             ))}
             {/* New group input */}
-            {(()=>{
-              const [newName, setNewName] = React.useState("");
-              return (
-                <div style={{display:"flex",gap:8,marginTop:8}}>
-                  <input value={newName} onChange={e=>setNewName(e.target.value)}
-                    onKeyDown={e=>{if(e.key==="Enter"&&newName.trim()){createGroup(newName);setNewName("");}}}
-                    placeholder="+ 새 모임 이름..." style={{flex:1,border:"1px dashed #ddd",borderRadius:6,padding:"6px 10px",fontSize:13,outline:"none"}}/>
-                  <button onClick={()=>{if(newName.trim()){createGroup(newName);setNewName("");}}}
-                    style={{background:RED,color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>추가</button>
-                </div>
-              );
-            })()}
+            <div style={{display:"flex",gap:8,marginTop:8}}>
+              <input value={newGroupName} onChange={e=>setNewGroupName(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"&&newGroupName.trim()){createGroup(newGroupName);setNewGroupName("");}}}
+                placeholder="+ 새 모임 이름..." style={{flex:1,border:"1px dashed #ddd",borderRadius:6,padding:"6px 10px",fontSize:13,outline:"none"}}/>
+              <button onClick={()=>{if(newGroupName.trim()){createGroup(newGroupName);setNewGroupName("");}}}
+                style={{background:RED,color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>추가</button>
+            </div>
           </div>
         )}
 
         <div style={{padding:16,maxWidth:640,margin:"0 auto"}}>
-          <button onClick={startSetup}
-            style={{width:"100%",background:RED,color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:16}}>
-            + 새 세션 시작
-          </button>
+          <div style={{display:"flex",gap:10,marginBottom:16}}>
+            <button onClick={startSetup}
+              style={{flex:1,background:RED,color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+              + 새 세션 시작
+            </button>
+            <button onClick={()=>setView("join")}
+              style={{flex:1,background:"#fff",color:RED,border:`2px solid ${RED}`,borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+              🔑 코드로 참여
+            </button>
+          </div>
 
           {filteredSessions.length===0 ? (
             <div style={{textAlign:"center",color:TH.T3,padding:48,fontSize:14}}>
@@ -2004,7 +2127,20 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           )}
 
           <div style={{...CS,background:"linear-gradient(135deg,#FBF4E4,#fff5f5)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+            {cur.accessCode&&(
+          <div style={{background:"rgba(255,255,255,.15)",padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <span style={{color:"rgba(255,255,255,.7)"}}>초대 코드</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:16,color:"#fff"}}>{cur.accessCode}</span>
+            <button onClick={()=>{
+              const url = `${window.location.origin}?join=${cur.accessCode}`;
+              if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
+              else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
+            }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>
+              🔗 공유
+            </button>
+          </div>
+        )}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
               <div>
                 <div style={{fontSize:12,fontWeight:600,color:TH.T2}}>채점 방식</div>
                 <div style={{fontSize:11,color:TH.T3,marginTop:2}}>
@@ -2246,12 +2382,10 @@ function App() {
     // ── 사전 검사 ──────────────────────────────────────────────
     if (!geminiKey) {
       toast("⚙️ Gemini API 키를 먼저 설정해주세요", "error"); return null;
-      return null;
     }
     const qr = active?.rubric?.qualRatio || 0;
     if (qr === 0) {
       toast("세션 설정에서 AI 정성 평가 비율을 설정해주세요", "warn"); return null;
-      return null;
     }
     // 평가 대상이 있는지 확인 (이유 텍스트 작성 여부)
     let evalTargets = 0;
@@ -2268,7 +2402,6 @@ function App() {
     }
     if (evalTargets === 0) {
       toast("평가할 내용이 없습니다 — 참가자 추론 또는 마을 항목 입력 필요", "warn"); return null;
-      return null;
     }
     // ── 실행 ──────────────────────────────────────────────────
     setQualLoading(true);
@@ -2342,7 +2475,14 @@ function App() {
   return (
     <BlindTastingPage
       sessions={sessions}
-      onSaveSessions={saveSessions}
+      onSaveSessions={(arr) => {
+        saveSessions(arr);
+        // Sync updated active session to Firestore for real-time collaboration
+        const activeId = arr.find ? arr[0]?.id : null;
+        if(arr && arr.length > 0 && arr[0]?.accessCode) {
+          sessionDB.save(arr[0]).catch(()=>{});
+        }
+      }}
       groups={groups}
       onSaveGroups={saveGroups}
       onBack={null}

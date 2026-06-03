@@ -1,10 +1,9 @@
-// ── Storage abstraction (Firebase + localStorage 하이브리드) ─────
-// - 쓰기: localStorage(즉시) + Firestore(동기화)
-// - 읽기: Firestore 우선, 오프라인 시 localStorage 폴백
-// - App.jsx는 수정 없이 기존 window.storage.get/set 그대로 사용
-
+// ── Storage: Firebase Firestore + localStorage 하이브리드 ─────────
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
+import {
+  getFirestore, doc, getDoc, setDoc, deleteDoc,
+  collection, getDocs, onSnapshot
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBmHLY_SrxOcIyBITEgD24z8LIU8h5u2G0",
@@ -16,56 +15,46 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const COL = "blind-tasting-data";
+export const db = getFirestore(app);
+export { doc, setDoc, onSnapshot, collection, getDocs, getDoc };
 
+const COL = "blind-tasting-data";
+const SESSIONS_COL = "sessions"; // 실시간 협업용 세션 컬렉션
+
+// ── 키-값 스토리지 (기존 데이터 호환) ──────────────────────────────
 export const storage = {
   async get(key) {
     try {
-      // Firestore 우선
       const snap = await getDoc(doc(db, COL, key));
       if (snap.exists()) {
         const value = snap.data().value;
-        localStorage.setItem(key, value); // 로컬 캐시 갱신
+        localStorage.setItem(key, value);
         return { key, value };
       }
-      // Firestore에 없으면 localStorage 폴백
       const local = localStorage.getItem(key);
       return local === null ? null : { key, value: local };
     } catch (e) {
-      // 오프라인 폴백
       const local = localStorage.getItem(key);
       return local === null ? null : { key, value: local };
     }
   },
-
   async set(key, value) {
     try {
-      // localStorage 즉시 저장 (오프라인에서도 작동)
       localStorage.setItem(key, value);
-      // Firestore 동기화
-      await setDoc(doc(db, COL, key), {
-        value,
-        updatedAt: new Date().toISOString()
-      });
+      await setDoc(doc(db, COL, key), { value, updatedAt: new Date().toISOString() });
       return { key, value };
     } catch (e) {
-      // Firestore 실패해도 localStorage는 저장됨
-      console.warn("[Storage] Firestore 쓰기 실패 (로컬 저장됨):", e.message);
+      console.warn("[Storage] Firestore 쓰기 실패:", e.message);
       return { key, value };
     }
   },
-
   async delete(key) {
     try {
       localStorage.removeItem(key);
       await deleteDoc(doc(db, COL, key));
-      return { key, deleted: true };
-    } catch (e) {
-      return { key, deleted: true };
-    }
+    } catch (e) {}
+    return { key, deleted: true };
   },
-
   async list(prefix = '') {
     try {
       const snap = await getDocs(collection(db, COL));
@@ -73,7 +62,6 @@ export const storage = {
       snap.forEach(d => { if (d.id.startsWith(prefix)) keys.push(d.id); });
       return { keys, prefix };
     } catch (e) {
-      // 오프라인 폴백
       const keys = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
@@ -84,7 +72,29 @@ export const storage = {
   },
 };
 
-// window.storage로 노출 (App.jsx가 이걸 사용)
-if (typeof window !== 'undefined' && !window.storage) {
+// ── 실시간 협업 세션 (멀티플레이어용) ────────────────────────────────
+export const sessionDB = {
+  // 세션 저장 (호스트가 생성 시)
+  async save(session) {
+    await setDoc(doc(db, SESSIONS_COL, session.id), session);
+  },
+  // 초대코드로 세션 찾기
+  async findByCode(code) {
+    const snap = await getDocs(collection(db, SESSIONS_COL));
+    let found = null;
+    snap.forEach(d => {
+      if (d.data().accessCode === code.toUpperCase()) found = d.data();
+    });
+    return found;
+  },
+  // 실시간 리스너 (세션 변경 시 콜백)
+  subscribe(sessionId, callback) {
+    return onSnapshot(doc(db, SESSIONS_COL, sessionId), snap => {
+      if (snap.exists()) callback(snap.data());
+    });
+  },
+};
+
+if (typeof window !== "undefined" && !window.storage) {
   window.storage = storage;
 }
