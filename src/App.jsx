@@ -639,8 +639,11 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     return (
       <div style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
-        <input list="dl-regions" value={gval("region")} onChange={e=>{updateGuess("region",e.target.value);updateGuess("village","");}}
-          placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={IST}/>
+        <div style={{position:"relative"}}>
+          <input list="dl-regions" value={gval("region")} onChange={e=>{updateGuess("region",e.target.value);updateGuess("village","");}}
+            placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={{...IST,paddingRight:28}}/>
+          {regions.length>0&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>}
+        </div>
         <datalist id="dl-regions">{regions.map(r=><option key={r} value={r}/>)}</datalist>
       </div>
     );
@@ -654,8 +657,11 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     return (
       <div style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>세부 마을 (선택)</div>
-        <input list="dl-villages" value={gval("village")} onChange={e=>updateGuess("village",e.target.value)}
-          placeholder="입력하면 자동완성" style={IST}/>
+        <div style={{position:"relative"}}>
+          <input list="dl-villages" value={gval("village")} onChange={e=>updateGuess("village",e.target.value)}
+            placeholder="입력하면 자동완성" style={{...IST,paddingRight:28}}/>
+          <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>
+        </div>
         <datalist id="dl-villages">{[...new Set(villages)].map(v=><option key={v} value={v}/>)}</datalist>
       </div>
     );
@@ -730,9 +736,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       return (
         <div style={{marginBottom:10}}>
           <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
-          <input list={`dl-ans-r-${wno}`} value={ans.region||""} onChange={e=>{upd("region",e.target.value);upd("subRegion","");}}
-            placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={ISTA}/>
-          <datalist id={`dl-ans-r-${wno}`}>{regions.map(r=><option key={r} value={r}/>)}</datalist>
+          <div style={{position:"relative"}}>
+            <input list={`dl-ans-r-${wno}`} value={ans.region||""} onChange={e=>{upd("region",e.target.value);upd("subRegion","");}}
+              placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={{...ISTA,paddingRight:28}}/>
+            {regions.length>0&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>}
+            <datalist id={`dl-ans-r-${wno}`}>{regions.map(r=><option key={r} value={r}/>)}</datalist>
+          </div>
         </div>
       );
     };
@@ -743,9 +752,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       return (
         <div style={{marginBottom:10}}>
           <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>마을/아펠라시옹 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
-          <input list={`dl-ans-v-${wno}`} value={ans.subRegion||""} onChange={e=>upd("subRegion",e.target.value)}
-            placeholder="입력하면 자동완성" style={ISTA}/>
-          <datalist id={`dl-ans-v-${wno}`}>{[...new Set(villages)].map(v=><option key={v} value={v}/>)}</datalist>
+          <div style={{position:"relative"}}>
+            <input list={`dl-ans-v-${wno}`} value={ans.subRegion||""} onChange={e=>upd("subRegion",e.target.value)}
+              placeholder="입력하면 자동완성" style={{...ISTA,paddingRight:28}}/>
+            <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>
+            <datalist id={`dl-ans-v-${wno}`}>{[...new Set(villages)].map(v=><option key={v} value={v}/>)}</datalist>
+          </div>
         </div>
       );
     };
@@ -917,30 +929,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               <button onClick={()=>{try{window.storage.set("blind-gemini-key",geminiKey);}catch(e){} setShowSettings(false);}}
                 style={{background:RED,color:"#fff",border:"none",borderRadius:6,padding:"7px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>저장</button>
             </div>
-            {/* API 연결 테스트 버튼 — 스코어링 로직과 무관하게 키/인증만 검사 */}
-            <button onClick={async()=>{
-              if(!geminiKey){ alert("키를 먼저 입력하세요"); return; }
-              try {
-                const r = await fetch(
-                  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
-                  { method:"POST",
-                    headers:{"Content-Type":"application/json","x-goog-api-key":geminiKey},
-                    body: JSON.stringify({contents:[{parts:[{text:"한 단어로 답해: 안녕"}]}]}) }
-                );
-                const d = await r.json();
-                if(!r.ok || d.error){
-                  alert("❌ 연결 실패 (HTTP "+r.status+")\n"+(d.error?.message||JSON.stringify(d).slice(0,200))+"\n\n이 메시지를 그대로 복사해서 알려주세요.");
-                } else {
-                  const txt = d.candidates?.[0]?.content?.parts?.[0]?.text || "(빈 응답)";
-                  alert("✅ 연결 성공!\nGemini 응답: "+txt+"\n\n이제 결과 화면에서 AI 채점이 작동합니다.");
-                }
-              } catch(e) {
-                alert("❌ 네트워크 오류: "+e.message+"\n\n(방화벽/프록시 또는 인터넷 연결 확인)");
-              }
-            }}
-              style={{marginTop:8,width:"100%",background:"#fff",color:RED,border:"1px solid "+RED,borderRadius:6,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
-              🔌 API 연결 테스트
-            </button>
+
             {geminiKey&&<div style={{fontSize:11,color:"#2E7D32",marginTop:4}}>✓ 키 설정됨</div>}
             {/* ── 데이터 백업/복원 ── */}
             <div style={{borderTop:`1px solid ${TH.BD}`,marginTop:12,paddingTop:12}}>
@@ -1118,6 +1107,14 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   if(view==="dashboard") {
     // ── Data aggregation ──────────────────────────────────────
     const FIELD_LABELS = {country:"국가",region:"지역",village:"마을",classification:"등급",grape:"품종",vintage:"빈티지"};
+    // 받침 있으면 은/이, 없으면 는/가
+    const josa = (word, type="은는") => {
+      const code = word.charCodeAt(word.length-1);
+      const hasBatchim = code >= 0xAC00 && ((code - 0xAC00) % 28 !== 0);
+      if(type==="은는") return hasBatchim ? "은" : "는";
+      if(type==="이가") return hasBatchim ? "이" : "가";
+      return "";
+    };
     const FIELD_KEYS = Object.keys(FIELD_LABELS);
 
     function buildStats(participant) {
@@ -1237,13 +1234,13 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       const ft=fieldTotals[k]; if(!ft.total) return;
       const missRate=ft.miss/ft.total;
       const exactRate=ft.exact/ft.total;
-      if(missRate>0.5) insights.push({type:"weak",text:`${FIELD_LABELS[k]} 적중률이 낮습니다 (${Math.round(exactRate*100)}% 정확)`});
-      if(exactRate>0.8) insights.push({type:"strong",text:`${FIELD_LABELS[k]}은 강점입니다 (${Math.round(exactRate*100)}% 정확)`});
+      if(missRate>0.5) insights.push({type:"weak",text:`${FIELD_LABELS[k]} 적중률이 낮아요 (${Math.round(exactRate*100)}%)`});
+      if(exactRate>0.8) insights.push({type:"strong",text:`${FIELD_LABELS[k]}${josa(FIELD_LABELS[k],"은는")} 강점이에요 (${Math.round(exactRate*100)}%)`});
     });
     const topConfusions=Object.entries(confusions).sort((a,b)=>b[1]-a[1]).slice(0,3);
-    topConfusions.forEach(([k,v])=>insights.push({type:"confusion",text:`지역 혼동: ${k} (${v}회)`}));
+    topConfusions.forEach(([k,v])=>insights.push({type:"confusion",text:`자주 혼동: ${k.replace("→"," → ")} (${v}회)`}));
     if(trend!==null) insights.push({type:trend>=0?"up":"down",
-      text:trend>=0?`최근 3세션 적중률 상승 추세 (+${trend}%p)`:`최근 3세션 적중률 하락 추세 (${trend}%p)`});
+      text:trend>=0?`최근 3세션 적중률이 올라가고 있어요 (+${trend}%p)`:` 최근 3세션 적중률이 떨어지고 있어요 (${trend}%p)`});
 
     return (
       <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
@@ -1430,7 +1427,20 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
           <span style={{fontSize:17,fontWeight:700}}>세션 설정</span>
         </div>
-        <div style={{padding:16,maxWidth:640,margin:"0 auto"}}>
+        {cur.accessCode&&(
+          <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur.accessCode}</span>
+            <button onClick={()=>{
+              const url=`${window.location.origin}?join=${cur.accessCode}`;
+              if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
+              else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
+            }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
+              🔗 초대 링크 공유
+            </button>
+          </div>
+        )}
+        <div style={{padding0,margin:"0 auto"}}>
           <div style={CS}>
             <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>세션 이름</div>
             <input value={sName} onChange={e=>setSName(e.target.value)}
@@ -1468,35 +1478,32 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
 
           {/* Answer mode */}
           <div style={CS}>
-            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:8}}>정답 입력 시점</div>
-            <div style={{display:"flex",gap:8,marginBottom:10}}>
-              {/* 🎉 모임 스타일 선택 */}
-              <div style={{marginBottom:16}}>
-                <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:8}}>모임 스타일</div>
-                <div style={{display:"flex",gap:10}}>
-                  <button onClick={()=>setSPartyMode(false)}
-                    style={{flex:1,padding:"12px 8px",border:`2px solid ${!sPartyMode?RED:"#ddd"}`,borderRadius:12,
-                      background:!sPartyMode?"#FDF1F2":TH.CARD,cursor:"pointer",textAlign:"left"}}>
-                    <div style={{fontSize:15,marginBottom:2}}>🎯 진지</div>
-                    <div style={{fontSize:11,color:TH.T2}}>6개 항목 · AI 채점 · 상세 분석</div>
-                  </button>
-                  <button onClick={()=>setSPartyMode(true)}
-                    style={{flex:1,padding:"12px 8px",border:`2px solid ${sPartyMode?"#D97706":"#ddd"}`,borderRadius:12,
-                      background:sPartyMode?"#FEF3C7":TH.CARD,cursor:"pointer",textAlign:"left"}}>
-                    <div style={{fontSize:15,marginBottom:2}}>🎉 파티</div>
-                    <div style={{fontSize:11,color:TH.T2}}>4개 항목 · 이모지 결과 · 부담없이</div>
-                  </button>
-                </div>
-              </div>
-                            <button onClick={()=>setSAnswerMode("prefill")}
-                style={{flex:1,padding:"10px 8px",border:`1px solid ${sAnswerMode==="prefill"?RED:"#ddd"}`,borderRadius:8,background:sAnswerMode==="prefill"?"#FDF1F2":"#fff",color:sAnswerMode==="prefill"?RED:"#666",cursor:"pointer",textAlign:"left"}}>
-                <div style={{fontSize:13,fontWeight:700}}>🔒 미리 등록</div>
-                <div style={{fontSize:11,opacity:.8,marginTop:2}}>혼자 진행 / 한 명이 정답 관리</div>
+            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:10}}>정답 입력 시점</div>
+            {/* 정답 입력 시점 — 2열 그리드 */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+              <button onClick={()=>setSAnswerMode("prefill")}
+                style={{padding:"12px 10px",border:`2px solid ${sAnswerMode==="prefill"?RED:"#ddd"}`,borderRadius:12,background:sAnswerMode==="prefill"?"#FDF1F2":TH.CARD,cursor:"pointer",textAlign:"left"}}>
+                <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>🔒 미리 등록</div>
+                <div style={{fontSize:11,color:TH.T2,lineHeight:1.4}}>혼자 진행 / 한 명이 정답 관리</div>
               </button>
               <button onClick={()=>setSAnswerMode("reveal")}
-                style={{flex:1,padding:"10px 8px",border:`1px solid ${sAnswerMode==="reveal"?RED:"#ddd"}`,borderRadius:8,background:sAnswerMode==="reveal"?"#FDF1F2":"#fff",color:sAnswerMode==="reveal"?RED:"#666",cursor:"pointer",textAlign:"left"}}>
-                <div style={{fontSize:13,fontWeight:700}}>🎉 공개 시 입력</div>
-                <div style={{fontSize:11,opacity:.8,marginTop:2}}>여러 출제자 모임 (정답 비공개)</div>
+                style={{padding:"12px 10px",border:`2px solid ${sAnswerMode==="reveal"?RED:"#ddd"}`,borderRadius:12,background:sAnswerMode==="reveal"?"#FDF1F2":TH.CARD,cursor:"pointer",textAlign:"left"}}>
+                <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>🎉 공개 시 입력</div>
+                <div style={{fontSize:11,color:TH.T2,lineHeight:1.4}}>여러 출제자 모임 (정답 비공개)</div>
+              </button>
+            </div>
+            {/* 모임 스타일 — 2열 그리드 */}
+            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:8}}>모임 스타일</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+              <button onClick={()=>setSPartyMode(false)}
+                style={{padding:"12px 10px",border:`2px solid ${!sPartyMode?RED:"#ddd"}`,borderRadius:12,background:!sPartyMode?"#FDF1F2":TH.CARD,cursor:"pointer",textAlign:"left"}}>
+                <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>🎯 Expert</div>
+                <div style={{fontSize:11,color:TH.T2,lineHeight:1.4}}>6 fields · AI scoring · detailed</div>
+              </button>
+              <button onClick={()=>setSPartyMode(true)}
+                style={{padding:"12px 10px",border:`2px solid ${sPartyMode?"#D97706":"#ddd"}`,borderRadius:12,background:sPartyMode?"#FEF3C7":TH.CARD,cursor:"pointer",textAlign:"left"}}>
+                <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>🎉 Party</div>
+                <div style={{fontSize:11,color:TH.T2,lineHeight:1.4}}>4 fields · emoji results · casual</div>
               </button>
             </div>
             {sAnswerMode==="prefill" && (
@@ -1597,6 +1604,19 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           </div>
           <div style={{fontSize:12,opacity:.85,paddingLeft:32}}>참가자에게 보이지 않습니다 · 와인별 "가져온 사람"도 지정하세요</div>
         </div>
+        {cur.accessCode&&(
+          <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur.accessCode}</span>
+            <button onClick={()=>{
+              const url=`${window.location.origin}?join=${cur.accessCode}`;
+              if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
+              else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
+            }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
+              🔗 초대 링크 공유
+            </button>
+          </div>
+        )}
         <div style={{padding:16,maxWidth:640,margin:"0 auto"}}><datalist id="dl-all-regions">{Object.values(WINE_ORIGINS).flatMap(rg=>Object.keys(rg)).map(r=><option key={r} value={r}/>)}</datalist><datalist id="dl-villages">{[...new Set(Object.values(WINE_ORIGINS).flatMap(rg=>Object.values(rg).flat()))].map(v=><option key={v} value={v}/>)}</datalist><datalist id="dl-grapes">{GRAPE_LIST.map(g=><option key={g} value={g}/>)}</datalist>
           <div style={{background:"#FEF3C7",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#92400E"}}>
             ⚠️ 각 와인의 실제 정보를 입력하세요. 잠금 후에는 참가자 추론 단계로 넘어갑니다.
@@ -1662,6 +1682,19 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
             <span style={{fontSize:16,fontWeight:700}}>{cur.name}</span>
           </div>
+{cur.accessCode&&(
+          <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur.accessCode}</span>
+            <button onClick={()=>{
+              const url=`${window.location.origin}?join=${cur.accessCode}`;
+              if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
+              else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
+            }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
+              🔗 초대 링크 공유
+            </button>
+          </div>
+        )}
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {Array.from({length:cur.wineCount}).map((_,i)=>(
               <div key={i} style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,
@@ -1709,7 +1742,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             {GCountry()}
             {GRegion()}
             {cur.partyMode ? (
-              /* ── 파티 모드: 품종 + 빈티지만 ── */
+              /* ── Party 모드: 품종 + 빈티지만 ── */
               <>
                 {GGrape()}
                 <div style={{marginBottom:10}}>
@@ -1719,7 +1752,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 </div>
               </>
             ) : (
-              /* ── 진지 모드: 전체 항목 ── */
+              /* ── Expert 모드: 전체 항목 ── */
               <>
                 {GVillage()}
                 {/* Classification */}
@@ -1857,7 +1890,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   }
 
 
-  // ── 파티 모드 결과 화면 ────────────────────────────────────────
+  // ── Party 모드 결과 화면 ────────────────────────────────────────
   if(view==="summary"&&cur&&cur.partyMode) {
     const emojiScore = (lvl) => lvl==="exact"?"⭕":lvl==="close"?"△":"✕";
     const funMsg = (hits, total) => {
@@ -1901,11 +1934,24 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
           <div style={{flex:1}}>
             <div style={{fontSize:15,fontWeight:700}}>{cur.name}</div>
-            <div style={{fontSize:11,opacity:.8}}>🎉 파티 모드 · 와인 {cur.wineCount}종</div>
+            <div style={{fontSize:11,opacity:.8}}>🎉 Party 모드 · 와인 {cur.wineCount}종</div>
           </div>
           <button onClick={()=>{setActive(null);setView("list");}}
             style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:8,padding:"5px 10px",fontSize:12,cursor:"pointer"}}>목록</button>
         </div>
+        {cur.accessCode&&(
+          <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur.accessCode}</span>
+            <button onClick={()=>{
+              const url=`${window.location.origin}?join=${cur.accessCode}`;
+              if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
+              else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
+            }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
+              🔗 초대 링크 공유
+            </button>
+          </div>
+        )}
 
         <div style={{padding:16,maxWidth:640,margin:"0 auto"}}>
           {/* 오늘의 소믈리에 */}
@@ -2043,48 +2089,6 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             </div>
           )}
 
-          {/* Rubric disclosure toggle */}
-          <div style={{marginBottom:10,textAlign:"right"}}>
-            <button onClick={()=>setShowRubric(v=>!v)}
-              style={{background:"none",border:`1px solid ${TH.BD}`,borderRadius:8,padding:"5px 12px",fontSize:11,color:TH.T2,cursor:"pointer"}}>
-              📋 채점 기준 {showRubric?"숨기기":"보기"}
-            </button>
-          </div>
-          {showRubric&&(
-            <div style={{...CS,background:TH.CARD2,fontSize:11,lineHeight:1.6,marginBottom:10}}>
-              <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:TH.T1}}>📋 이 세션 채점 기준</div>
-              {/* Quantitative weights */}
-              <div style={{marginBottom:8}}>
-                <div style={{fontWeight:600,color:TH.T2,marginBottom:3}}>🔢 정량 채점 (자동 · {Math.round((1-(cur.rubric?.qualRatio||0))*100)}%)</div>
-                <div style={{color:TH.T2}}>
-                  {Object.entries(cur.rubric?.weights||{}).filter(([,w])=>w>0).map(([k,w])=>`${({country:"국가",region:"지역",village:"마을",classification:"등급",grape:"품종",vintage:"빈티지"})[k]}×${w}`).join(" · ")}
-                </div>
-                <div style={{color:TH.T3,marginTop:2}}>빈티지 ±{cur.rubric?.vintageTol??2}년 허용 · 근접 점수 {Math.round((cur.rubric?.closeRatio??0.5)*100)}%</div>
-              </div>
-              {/* Village AI */}
-              <div style={{marginBottom:8}}>
-                <div style={{fontWeight:600,color:TH.T2,marginBottom:3}}>🤖 마을 AI 의미 판정</div>
-                <div style={{color:TH.T2}}>동일 서브리전 내 인접 마을만 근접 처리 · 다른 서브리전은 오답</div>
-                <div style={{color:TH.T3}}>예) 코트드뉘 내 인접 마을 → 근접 / 코트드뉘↔코트드본 → 오답</div>
-              </div>
-              {/* Qualitative */}
-              {(cur.rubric?.qualRatio||0)>0&&(
-                <div>
-                  <div style={{fontWeight:600,color:TH.T2,marginBottom:3}}>🤖 AI 정성 평가 ({Math.round((cur.rubric?.qualRatio||0)*100)}%)</div>
-                  {[["향 묘사 해상도","8점","1차·2차·3차 향 세밀도, 정답 와인 핵심 마커 포착 여부"],
-                    ["구조감·텍스처","12점","산도·타닌·바디·피니시를 텍스처 질감까지 묘사 (가장 중요)"],
-                    ["논리 정합성","10점","묘사→결론 연결 논리성. 타당한 오답은 만점 가능"]
-                  ].map(([t,p,d])=>(
-                    <div key={t} style={{marginBottom:4}}>
-                      <span style={{fontWeight:600,color:TH.T2}}>{t}</span>
-                      <span style={{color:TH.T3,marginLeft:4}}>{p}</span>
-                      <div style={{color:TH.T3,paddingLeft:8}}>→ {d}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* ── 채점 기준 공개 ── */}
           <div style={{marginBottom:10,textAlign:"right"}}>
