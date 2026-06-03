@@ -1427,12 +1427,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
           <span style={{fontSize:17,fontWeight:700}}>세션 설정</span>
         </div>
-        {cur.accessCode&&(
+        {cur?.accessCode&&(
           <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
             <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
-            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur.accessCode}</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
-              const url=`${window.location.origin}?join=${cur.accessCode}`;
+              const url=`${window.location.origin}?join=${cur?.accessCode}`;
               if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
               else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
             }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
@@ -1604,12 +1604,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           </div>
           <div style={{fontSize:12,opacity:.85,paddingLeft:32}}>참가자에게 보이지 않습니다 · 와인별 "가져온 사람"도 지정하세요</div>
         </div>
-        {cur.accessCode&&(
+        {cur?.accessCode&&(
           <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
             <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
-            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur.accessCode}</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
-              const url=`${window.location.origin}?join=${cur.accessCode}`;
+              const url=`${window.location.origin}?join=${cur?.accessCode}`;
               if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
               else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
             }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
@@ -1682,12 +1682,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
             <span style={{fontSize:16,fontWeight:700}}>{cur.name}</span>
           </div>
-{cur.accessCode&&(
+{cur?.accessCode&&(
           <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
             <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
-            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur.accessCode}</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
-              const url=`${window.location.origin}?join=${cur.accessCode}`;
+              const url=`${window.location.origin}?join=${cur?.accessCode}`;
               if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
               else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
             }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
@@ -1939,12 +1939,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           <button onClick={()=>{setActive(null);setView("list");}}
             style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:8,padding:"5px 10px",fontSize:12,cursor:"pointer"}}>목록</button>
         </div>
-        {cur.accessCode&&(
+        {cur?.accessCode&&(
           <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
             <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
-            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur.accessCode}</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
-              const url=`${window.location.origin}?join=${cur.accessCode}`;
+              const url=`${window.location.origin}?join=${cur?.accessCode}`;
               if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
               else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
             }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
@@ -2132,12 +2132,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           )}
 
           <div style={{...CS,background:"linear-gradient(135deg,#FBF4E4,#fff5f5)"}}>
-            {cur.accessCode&&(
+            {cur?.accessCode&&(
           <div style={{background:"rgba(255,255,255,.15)",padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <span style={{color:"rgba(255,255,255,.7)"}}>초대 코드</span>
-            <span style={{fontWeight:800,letterSpacing:3,fontSize:16,color:"#fff"}}>{cur.accessCode}</span>
+            <span style={{fontWeight:800,letterSpacing:3,fontSize:16,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
-              const url = `${window.location.origin}?join=${cur.accessCode}`;
+              const url = `${window.location.origin}?join=${cur?.accessCode}`;
               if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
               else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
             }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>
@@ -2361,7 +2361,7 @@ function App() {
   const [geminiKey, setGeminiKey] = useState("");
   const [qualLoading, setQualLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     (async () => {
       try {
         const r = await window.storage.get(SESSIONS_KEY);
@@ -2483,7 +2483,6 @@ function App() {
       onSaveSessions={(arr) => {
         saveSessions(arr);
         // Sync updated active session to Firestore for real-time collaboration
-        const activeId = arr.find ? arr[0]?.id : null;
         if(arr && arr.length > 0 && arr[0]?.accessCode) {
           sessionDB.save(arr[0]).catch(()=>{});
         }
