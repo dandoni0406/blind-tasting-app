@@ -1440,7 +1440,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             </button>
           </div>
         )}
-        <div style={{padding0,margin:"0 auto"}}>
+        <div style={{padding:0,margin:"0 auto"}}>
           <div style={CS}>
             <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>세션 이름</div>
             <input value={sName} onChange={e=>setSName(e.target.value)}
