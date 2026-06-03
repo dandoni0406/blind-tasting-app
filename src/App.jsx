@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import './storage.js';
 
 // ── Shared constants & helpers (extracted from cellar app) ───────
 const RED = "#8B2635", GOLD = "#9A7020";
-const CS = { background:"#fff", border:"1px solid #ece8e4", borderRadius:12, padding:16, marginBottom:12 };
+const TH = { CARD:"#fff", CARD2:"#FAFAFA", BD:"#e8e0d8", T2:"#666", T3:"#888" };
+const CS = { background:"#fff", border:"1px solid #e8e0d8", borderRadius:12, padding:16, marginBottom:12 };
 function cleanName(name, vintage) {
   if (!name||!vintage) return name||"";
   return name.replace(new RegExp(`\\s*${vintage}\\s*$`), "").trim();
@@ -111,19 +111,19 @@ ${qualSection}
     if(!r.ok) {
       const errText = await r.text();
       console.error("[Gemini] HTTP 오류:", r.status, errText);
-      alert("[Gemini API 에러] HTTP " + r.status + "\n" + errText.slice(0,300));
+      toast("[Gemini API 에러] HTTP " + r.status + " — " + errText.slice(0,100), "error", 5000);
       return null;
     }
     const d = await r.json();
     if(d.error) {
       console.error("[Gemini] API 오류:", d.error.code, d.error.message);
-      alert("[Gemini API 에러] " + (d.error.message||JSON.stringify(d.error)));
+      toast("[Gemini API 에러] " + (d.error.message||JSON.stringify(d.error)).slice(0,100), "error", 5000);
       return null;
     }
     const text = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
     console.log("[Gemini] 응답:", text.slice(0,200));
     if(!text.trim()) {
-      alert("[Gemini API 에러] 빈 응답을 받았습니다. 잠시 후 다시 시도해주세요.");
+      toast("Gemini 빈 응답 — 잠시 후 다시 시도해주세요.", "warn");
       return null;
     }
     // JSON 강제 모드라 마크다운 없이 순수 JSON → 바로 파싱
@@ -147,9 +147,74 @@ ${qualSection}
     return Object.keys(result).length ? result : null;
   } catch(e) {
     console.error("[Gemini] 예외:", e);
-    alert("AI 평가 중 오류가 발생했습니다: " + e.message);
+    toast("AI 평가 오류: " + e.message, "error", 5000);
     return null;
   }
+}
+
+// ── 다크모드 테마 팔레트 ──────────────────────────────────────────
+function getTheme(dark) {
+  return dark ? {
+    BG:    "#16090C",   // 페이지 배경 (딥 와인 블랙)
+    CARD:  "#231217",   // 카드 배경
+    CARD2: "#2C1820",   // 보조 카드 (패널 등)
+    T1:    "#EDE0E3",   // 주 텍스트
+    T2:    "#9E7E84",   // 보조 텍스트
+    T3:    "#5A3A40",   // 희미한 텍스트
+    BD:    "#3D2028",   // 테두리
+    INP:   "#1E0F13",   // 입력창 배경
+    RED:   "#C04060",   // 다크모드 레드 (더 밝게)
+  } : {
+    BG:    "#F7F4F0",
+    CARD:  "#fff",
+    CARD2: "#FAFAFA",
+    T1:    "#3B2A1A",
+    T2:    "#666",
+    T3:    "#aaa",
+    BD:    "#ddd",
+    INP:   "#fff",
+    RED:   "#8B2635",
+  };
+}
+
+// ── Toast 알림 시스템 ──────────────────────────────────────────────
+function ToastContainer({ toasts }) {
+  if (!toasts.length) return null;
+  return (
+    <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",
+      zIndex:9999,display:"flex",flexDirection:"column",gap:8,alignItems:"center",pointerEvents:"none"}}>
+      {toasts.map(t=>(
+        <div key={t.id} style={{
+          padding:"10px 20px",borderRadius:24,fontSize:13,fontWeight:600,
+          color:"#fff",boxShadow:"0 4px 16px rgba(0,0,0,.25)",
+          background: t.type==="error"?"#991B1B": t.type==="success"?"#2E7D32":
+                      t.type==="warn"?"#92400E":"#3B2A1A",
+          opacity: t.fading ? 0 : 1,
+          transition:"opacity .3s",
+          maxWidth:320,textAlign:"center",
+        }}>{t.msg}</div>
+      ))}
+    </div>
+  );
+}
+
+// ── 커스텀 확인 Modal (confirm 대체) ──────────────────────────────
+function ConfirmModal({ message, onYes, onNo }) {
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9998,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{background:"#fff",borderRadius:16,padding:24,maxWidth:320,width:"100%",
+        boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
+        <div style={{fontSize:14,color:TH.T1,marginBottom:20,lineHeight:1.6}}>{message}</div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onNo} style={{flex:1,padding:"10px",border:`1px solid ${TH.BD}`,
+            borderRadius:10,fontSize:13,cursor:"pointer",background:"#fff",color:TH.T2}}>취소</button>
+          <button onClick={onYes} style={{flex:1,padding:"10px",border:"none",
+            borderRadius:10,fontSize:13,cursor:"pointer",background:"#8B2635",color:"#fff",fontWeight:700}}>확인</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Blind tasting scoring (custom rubric, proximity-aware, AI-ready) ──
@@ -298,7 +363,7 @@ function SessionPhotos({ photos=[], onAdd, onDelete, readOnly=false }) {
         ))}
         {!readOnly&&(
           <button onClick={()=>fileRef.current?.click()}
-            style={{width:90,height:90,border:"1px dashed #ddd",borderRadius:8,background:"#fafafa",color:"#bbb",fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            style={{width:90,height:90,border:"1px dashed #ddd",borderRadius:8,background:TH.CARD2,color:TH.T3,fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
             +
           </button>
         )}
@@ -321,7 +386,21 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [editingGroupId, setEditingGroupId] = useState(null); // group being renamed
   const [editingGroupVal, setEditingGroupVal] = useState("");
   const [filterGroupId, setFilterGroupId] = useState("all");
-  const [dashParticipant, setDashParticipant] = useState(null); // "all"|"none"|groupId
+  const [dashParticipant, setDashParticipant] = useState(null);
+  const [darkMode, setDarkMode] = useState(()=>{
+    try { return localStorage.getItem("blind-dark-mode")==="1"; } catch(e) { return false; }
+  });
+  const [toasts, setToasts] = useState([]);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const TH = getTheme(darkMode);
+  const toast = (msg, type="info", ms=3000)=>{
+    const id = Date.now()+Math.random();
+    setToasts(t=>[...t,{id,msg,type}]);
+    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)), ms);
+  };
+  const showConfirm = (message)=>new Promise(res=>{
+    setConfirmModal({message, onYes:()=>{setConfirmModal(null);res(true);}, onNo:()=>{setConfirmModal(null);res(false);}});
+  }); // "all"|"none"|groupId
   const GROUP_COLORS = ["#8B2635","#2E7D32","#1E6FA0","#7a5c10","#6B21A8","#C0392B"];
   const [active, setActive] = useState(null); // active session object
   const [wineIdx, setWineIdx] = useState(0);
@@ -331,13 +410,14 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [sName, setSName] = useState("");
   const [sCount, setSCount] = useState(4);
   const [sParts, setSParts] = useState(tasters.filter(Boolean));
-  const [sGroupId, setSGroupId] = useState(null); // null = 단독
+  const [sGroupId, setSGroupId] = useState(null);
+  const [sPartyMode, setSPartyMode] = useState(false); // null = 단독
   const [sAnswerMode, setSAnswerMode] = useState("prefill"); // prefill | reveal
   const [sRubric, setSRubric] = useState(JSON.parse(JSON.stringify(DEFAULT_RUBRIC)));
 
   function startSetup() {
     setSName(`블라인드 ${new Date().toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})}`);
-    setSCount(4); setSParts(tasters.filter(Boolean)); setSGroupId(null); setSAnswerMode("prefill"); setSRubric(JSON.parse(JSON.stringify(DEFAULT_RUBRIC))); setView("setup");
+    setSCount(4); setSParts(tasters.filter(Boolean)); setSGroupId(null); setSPartyMode(false); setSAnswerMode("prefill"); setSRubric(JSON.parse(JSON.stringify(DEFAULT_RUBRIC))); setView("setup");
   }
   function createSession() {
     const parts = sParts.filter(Boolean);
@@ -345,7 +425,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     const s = {
       id:String(Date.now()), name:sName||"블라인드 테이스팅",
       date:new Date().toISOString(), participants:parts, wineCount:sCount,
-      groupId:sGroupId, answerMode:sAnswerMode, rubric:sRubric,
+      groupId:sGroupId, partyMode:sPartyMode, answerMode:sAnswerMode, rubric:sRubric,
       guesses:{}, answers:{}, revealed:false, answersLocked:false, createdAt:new Date().toISOString(),
     };
     parts.forEach(p=>{s.guesses[p]={};});
@@ -423,7 +503,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     setView("summary");
   }
   function deleteSession(id) {
-    if(window.confirm("이 세션을 삭제할까요?")) onSaveSessions(sessions.filter(s=>s.id!==id));
+    showConfirm("이 세션을 삭제할까요?").then(ok=>{if(ok){onSaveSessions(sessions.filter(s=>s.id!==id));toast("세션 삭제됨","info");}});
   }
   // ── Group helpers ──────────────────────────────────────────────
   function createGroup(name) {
@@ -434,11 +514,13 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     onSaveGroups([g, ...groups]);
   }
   function deleteGroup(id) {
-    if(!window.confirm("모임을 삭제할까요? 세션은 유지됩니다.")) return;
+    showConfirm("모임을 삭제할까요? 세션은 유지됩니다.").then(ok=>{
+    if(!ok)return;
     onSaveGroups(groups.filter(g=>g.id!==id));
     // Unlink sessions from this group
     const updated = sessions.map(s=>s.groupId===id?{...s,groupId:null}:s);
     onSaveSessions(updated);
+  });
   }
   function renameGroup(id, name) {
     if(!name.trim()) return;
@@ -462,11 +544,11 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const cur = active;
   const p_=cur?.participants?.[pIdx], wno_=wineIdx+1;
   const gval=(field)=>cur?.guesses?.[p_]?.[wno_]?.[field]||"";
-  const IST={width:"100%",border:"1px solid #ddd",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"};
+  const IST={width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box",background:TH.INP,color:TH.T1};
   // Country dropdown
   const GCountry=()=>(
     <div style={{marginBottom:10}}>
-      <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>국가</div>
+      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>국가</div>
       <select value={gval("country")} onChange={e=>{updateGuess("country",e.target.value);updateGuess("region","");updateGuess("village","");}} style={{...IST,background:"#fff"}}>
         <option value="">선택...</option>
         {Object.keys(WINE_ORIGINS).map(c=><option key={c} value={c}>{c}</option>)}
@@ -481,7 +563,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     const regions=WINE_ORIGINS[c]?Object.keys(WINE_ORIGINS[c]):[];
     return (
       <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>지역</div>
+        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
         <input list="dl-regions" value={gval("region")} onChange={e=>{updateGuess("region",e.target.value);updateGuess("village","");}}
           placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={IST}/>
         <datalist id="dl-regions">{regions.map(r=><option key={r} value={r}/>)}</datalist>
@@ -496,7 +578,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     else { Object.values(WINE_ORIGINS).forEach(rg=>Object.values(rg).forEach(vs=>villages.push(...vs))); }
     return (
       <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>세부 마을 (선택)</div>
+        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>세부 마을 (선택)</div>
         <input list="dl-villages" value={gval("village")} onChange={e=>updateGuess("village",e.target.value)}
           placeholder="입력하면 자동완성" style={IST}/>
         <datalist id="dl-villages">{[...new Set(villages)].map(v=><option key={v} value={v}/>)}</datalist>
@@ -518,7 +600,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     );
     return (
       <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>품종 <span style={{fontWeight:400,color:"#bbb"}}>(복수 선택 — 블렌드)</span></div>
+        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>품종 <span style={{fontWeight:400,color:TH.T3}}>(복수 선택 — 블렌드)</span></div>
         {sel.length>0&&<div style={{fontSize:12,color:RED,fontWeight:600,marginBottom:6}}>선택: {sel.join(", ")}</div>}
         {/* Region-recommended grapes first */}
         {regionGrapes&&!showAll&&(
@@ -529,16 +611,16 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
         )}
         {(!regionGrapes||showAll)&&(
           <div>
-            <div style={{fontSize:10,color:"#aaa",margin:"4px 0 3px"}}>🍷 레드</div>
+            <div style={{fontSize:10,color:TH.T3,margin:"4px 0 3px"}}>🍷 레드</div>
             <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.red.slice(0,showAll?99:8).map(g=><Chip key={g} g={g}/>)}</div>
-            <div style={{fontSize:10,color:"#aaa",margin:"6px 0 3px"}}>🥂 화이트</div>
+            <div style={{fontSize:10,color:TH.T3,margin:"6px 0 3px"}}>🥂 화이트</div>
             <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.white.slice(0,showAll?99:8).map(g=><Chip key={g} g={g}/>)}</div>
           </div>
         )}
         <div style={{display:"flex",gap:8,marginTop:6,alignItems:"center"}}>
-          <button onClick={()=>setShowAll(v=>!v)} style={{background:"none",border:"none",color:"#999",fontSize:11,cursor:"pointer",padding:0,textDecoration:"underline"}}>{showAll?"접기":(regionGrapes?"전체 품종 보기":"더 많은 품종")}</button>
+          <button onClick={()=>setShowAll(v=>!v)} style={{background:"none",border:"none",color:TH.T3,fontSize:11,cursor:"pointer",padding:0,textDecoration:"underline"}}>{showAll?"접기":(regionGrapes?"전체 품종 보기":"더 많은 품종")}</button>
           <input list="dl-grapes" placeholder="직접 입력 후 Enter" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){toggle(e.target.value.trim());e.target.value="";}}}
-            style={{flex:1,border:"1px solid #eee",borderRadius:6,padding:"5px 8px",fontSize:12,outline:"none",minWidth:0}}/>
+            style={{flex:1,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"5px 8px",fontSize:12,outline:"none",minWidth:0}}/>
           <datalist id="dl-grapes">{GRAPE_LIST.map(g=><option key={g} value={g}/>)}</datalist>
         </div>
       </div>
@@ -547,7 +629,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   // Plain field (vintage)
   const G = ({label,field,ph})=>(
     <div style={{marginBottom:10}}>
-      <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>{label}</div>
+      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>{label}</div>
       <input value={gval(field)} onChange={e=>updateGuess(field,e.target.value)} placeholder={ph} style={IST}/>
     </div>
   );
@@ -556,11 +638,11 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const makeAnswerComponents = (wno) => {
     const ans = cur?.answers?.[wno] || {};
     const upd = (field, val) => updateAnswer(wno, field, val);
-    const ISTA = {width:"100%",border:"1px solid #ddd",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"};
+    const ISTA = {width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"};
 
     const ACountry = () => (
       <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>국가</div>
+        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>국가</div>
         <select value={ans.country||""} onChange={e=>{upd("country",e.target.value);upd("region","");upd("subRegion","");}} style={{...ISTA,background:"#fff"}}>
           <option value="">선택...</option>
           {Object.keys(WINE_ORIGINS).map(cc=><option key={cc} value={cc}>{cc}</option>)}
@@ -572,7 +654,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       const regions = WINE_ORIGINS[ans.country] ? Object.keys(WINE_ORIGINS[ans.country]) : [];
       return (
         <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>지역</div>
+          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
           <input list={`dl-ans-r-${wno}`} value={ans.region||""} onChange={e=>{upd("region",e.target.value);upd("subRegion","");}}
             placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={ISTA}/>
           <datalist id={`dl-ans-r-${wno}`}>{regions.map(r=><option key={r} value={r}/>)}</datalist>
@@ -585,7 +667,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
         || [...new Set(Object.values(WINE_ORIGINS).flatMap(rg=>Object.values(rg).flat()))];
       return (
         <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>마을/아펠라시옹 <span style={{fontWeight:400,color:"#bbb"}}>(선택)</span></div>
+          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>마을/아펠라시옹 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
           <input list={`dl-ans-v-${wno}`} value={ans.subRegion||""} onChange={e=>upd("subRegion",e.target.value)}
             placeholder="입력하면 자동완성" style={ISTA}/>
           <datalist id={`dl-ans-v-${wno}`}>{[...new Set(villages)].map(v=><option key={v} value={v}/>)}</datalist>
@@ -598,8 +680,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       const allowed = REGION_CLASSES[ans.region] || DEFAULT_CLASSES;
       return (
         <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>
-            등급{ans.region&&REGION_CLASSES[ans.region]&&<span style={{fontWeight:400,color:"#bbb",fontSize:10}}> · {ans.region} 체계</span>}
+          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>
+            등급{ans.region&&REGION_CLASSES[ans.region]&&<span style={{fontWeight:400,color:TH.T3,fontSize:10}}> · {ans.region} 체계</span>}
           </div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {allowed.map(v=>(
@@ -622,11 +704,11 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       );
       return (
         <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>품종 <span style={{fontWeight:400,color:"#bbb"}}>(복수 선택 가능)</span></div>
+          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>품종 <span style={{fontWeight:400,color:TH.T3}}>(복수 선택 가능)</span></div>
           {sel.length>0&&<div style={{fontSize:12,color:RED,fontWeight:600,marginBottom:6}}>선택: {sel.join(", ")}</div>}
           {regionGrapes
             ? <><div style={{fontSize:10,color:GOLD,fontWeight:600,margin:"4px 0 3px"}}>⭐ {ans.region} 대표 품종</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{regionGrapes.map(g=><Chip key={g} g={g}/>)}</div></>
-            : <><div style={{fontSize:10,color:"#aaa",margin:"4px 0 3px"}}>🍷 레드</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.red.slice(0,8).map(g=><Chip key={g} g={g}/>)}</div><div style={{fontSize:10,color:"#aaa",margin:"6px 0 3px"}}>🥂 화이트</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.white.slice(0,8).map(g=><Chip key={g} g={g}/>)}</div></>
+            : <><div style={{fontSize:10,color:TH.T3,margin:"4px 0 3px"}}>🍷 레드</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.red.slice(0,8).map(g=><Chip key={g} g={g}/>)}</div><div style={{fontSize:10,color:TH.T3,margin:"6px 0 3px"}}>🥂 화이트</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.white.slice(0,8).map(g=><Chip key={g} g={g}/>)}</div></>
           }
           <input list={`dl-ans-g-${wno}`} placeholder="직접 입력 후 Enter"
             onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){toggle(e.target.value.trim());e.target.value="";}}}
@@ -638,7 +720,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
 
     const AVintage = () => (
       <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>빈티지</div>
+        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지</div>
         <input type="number" min="1900" max="2030" value={ans.vintage||""} onChange={e=>upd("vintage",e.target.value)}
           placeholder="예: 2019" style={{...ISTA,width:120}}/>
       </div>
@@ -662,7 +744,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     };
 
     return (
-      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
         {/* Header */}
         <div style={{background:RED,color:"#fff",padding:"16px 18px"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
@@ -673,6 +755,14 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",fontSize:15,cursor:"pointer"}}>📊</button>
               <button onClick={()=>{setShowGroupMgr(v=>!v);setShowSettings(false);}}
                 style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",fontSize:15,cursor:"pointer"}}>👥</button>
+              <button onClick={()=>{
+                const next=!darkMode;
+                setDarkMode(next);
+                try{localStorage.setItem("blind-dark-mode",next?"1":"0");}catch(e){}
+              }} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",fontSize:16,cursor:"pointer"}}
+                title={darkMode?"라이트 모드":"다크 모드"}>
+                {darkMode?"☀️":"🌙"}
+              </button>
               <button onClick={()=>{setShowSettings(v=>!v);setShowGroupMgr(false);}}
                 style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",fontSize:16,cursor:"pointer"}}>⚙️</button>
             </div>
@@ -696,11 +786,11 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
 
         {/* Settings panel */}
         {showSettings&&(
-          <div style={{background:"#fff",padding:"14px 16px",borderBottom:"1px solid #eee"}}>
-            <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>Gemini API 키 <span style={{fontWeight:400}}>(정성 평가 · 무료: aistudio.google.com/apikey)</span></div>
+          <div style={{background:"#fff",padding:"14px 16px",borderBottom:`1px solid ${TH.BD}`}}>
+            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>Gemini API 키 <span style={{fontWeight:400}}>(정성 평가 · 무료: aistudio.google.com/apikey)</span></div>
             <div style={{display:"flex",gap:8}}>
               <input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)}
-                placeholder="AIza..." style={{flex:1,border:"1px solid #ddd",borderRadius:6,padding:"7px 10px",fontSize:12,outline:"none"}}/>
+                placeholder="AIza..." style={{flex:1,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:12,outline:"none"}}/>
               <button onClick={()=>{try{window.storage.set("blind-gemini-key",geminiKey);}catch(e){} setShowSettings(false);}}
                 style={{background:RED,color:"#fff",border:"none",borderRadius:6,padding:"7px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>저장</button>
             </div>
@@ -729,13 +819,71 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               🔌 API 연결 테스트
             </button>
             {geminiKey&&<div style={{fontSize:11,color:"#2E7D32",marginTop:4}}>✓ 키 설정됨</div>}
+            {/* ── 데이터 백업/복원 ── */}
+            <div style={{borderTop:`1px solid ${TH.BD}`,marginTop:12,paddingTop:12}}>
+              <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:8}}>💾 데이터 백업/복원</div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{
+                  const data = {
+                    version: 2,
+                    exportedAt: new Date().toISOString(),
+                    sessions, groups, tasters,
+                  };
+                  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `blind-tasting-backup-${new Date().toISOString().slice(0,10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                  style={{flex:1,background:"#fff",color:TH.T2,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                  📥 백업 다운로드
+                </button>
+                <label style={{flex:1,background:"#fff",color:TH.T2,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"center"}}>
+                  📤 복원하기
+                  <input type="file" accept=".json" style={{display:"none"}} onChange={async(e)=>{
+                    const file = e.target.files?.[0];
+                    if(!file) return;
+                    try {
+                      const text = await file.text();
+                      const data = JSON.parse(text);
+                      if(!data.sessions || !Array.isArray(data.sessions)) {
+                        alert("유효한 백업 파일이 아닙니다."); return;
+                      }
+                      const mode = await showConfirm(
+                        `백업 파일 정보:\n세션 ${data.sessions.length}개 · 모임 ${(data.groups||[]).length}개\n\n[확인] = 기존 데이터에 병합\n[취소] = 가져오기 취소`
+                      );
+                      if(!mode) return;
+                      // Merge: add sessions not already present (by id)
+                      const existingIds = new Set(sessions.map(s=>s.id));
+                      const newSessions = data.sessions.filter(s=>!existingIds.has(s.id));
+                      if(newSessions.length>0) onSaveSessions([...sessions, ...newSessions]);
+                      // Merge groups
+                      if(data.groups?.length) {
+                        const existingGids = new Set(groups.map(g=>g.id));
+                        const newGroups = data.groups.filter(g=>!existingGids.has(g.id));
+                        if(newGroups.length>0) onSaveGroups([...groups, ...newGroups]);
+                      }
+                      alert(`✅ 복원 완료!\n새 세션 ${newSessions.length}개 추가됨`);
+                    } catch(err) {
+                      alert("파일 읽기 오류: " + err.message);
+                    }
+                    e.target.value = "";
+                  }}/>
+                </label>
+              </div>
+              <div style={{fontSize:10,color:TH.T3,marginTop:4}}>
+                세션·모임·참가자 데이터를 JSON으로 내보내기/가져오기. 브라우저 데이터 유실 대비용.
+              </div>
+            </div>
           </div>
         )}
 
         {/* Group manager panel */}
         {showGroupMgr&&(
-          <div style={{background:"#fff",padding:"14px 16px",borderBottom:"1px solid #eee"}}>
-            <div style={{fontSize:12,fontWeight:700,color:"#333",marginBottom:10}}>👥 모임 관리</div>
+          <div style={{background:"#fff",padding:"14px 16px",borderBottom:`1px solid ${TH.BD}`}}>
+            <div style={{fontSize:12,fontWeight:700,color:TH.T1,marginBottom:10}}>👥 모임 관리</div>
             {groups.map(g=>(
               <div key={g.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                 <div style={{width:10,height:10,borderRadius:"50%",background:g.color,flexShrink:0}}/>
@@ -750,11 +898,11 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 ) : (
                   <span style={{flex:1,fontSize:13,fontWeight:600}}>{g.name}</span>
                 )}
-                <span style={{fontSize:11,color:"#aaa"}}>{sessionCountByGroup(g.id)}회</span>
+                <span style={{fontSize:11,color:TH.T3}}>{sessionCountByGroup(g.id)}회</span>
                 <button onClick={()=>{setEditingGroupId(g.id);setEditingGroupVal(g.name);}}
-                  style={{background:"none",border:"none",color:"#ccc",fontSize:13,cursor:"pointer"}}>✏️</button>
+                  style={{background:"none",border:"none",color:TH.T3,fontSize:13,cursor:"pointer"}}>✏️</button>
                 <button onClick={()=>deleteGroup(g.id)}
-                  style={{background:"none",border:"none",color:"#ccc",fontSize:14,cursor:"pointer"}}>🗑</button>
+                  style={{background:"none",border:"none",color:TH.T3,fontSize:14,cursor:"pointer"}}>🗑</button>
               </div>
             ))}
             {/* New group input */}
@@ -780,7 +928,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           </button>
 
           {filteredSessions.length===0 ? (
-            <div style={{textAlign:"center",color:"#bbb",padding:48,fontSize:14}}>
+            <div style={{textAlign:"center",color:TH.T3,padding:48,fontSize:14}}>
               {sessions.length===0 ? "모임에서 블라인드 테이스팅을\n진행하고 기록해보세요 🍷" : "해당 모임의 세션이 없습니다"}
             </div>
           ) : filteredSessions.map(s=>{
@@ -803,12 +951,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                         <button onClick={()=>renameSession(s.id,editingNameVal)}
                           style={{background:RED,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",fontSize:12,cursor:"pointer"}}>저장</button>
                         <button onClick={()=>setEditingNameId(null)}
-                          style={{background:"none",border:"1px solid #ddd",borderRadius:6,padding:"4px 8px",fontSize:12,color:"#999",cursor:"pointer"}}>취소</button>
+                          style={{background:"none",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"4px 8px",fontSize:12,color:TH.T3,cursor:"pointer"}}>취소</button>
                       </div>
                     ) : (
                       <div style={{fontSize:14,fontWeight:600}}>{s.name}</div>
                     )}
-                    <div style={{fontSize:12,color:"#aaa",marginTop:2}}>{s.date?.split("T")[0]} · {s.wineCount}병 · {s.participants.length}명</div>
+                    <div style={{fontSize:12,color:TH.T3,marginTop:2}}>{s.date?.split("T")[0]} · {s.wineCount}병 · {s.participants.length}명</div>
                     {/* Photo thumbnails */}
                     {(s.photos||[]).length>0&&(
                       <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
@@ -816,7 +964,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                           <img key={i} src={p.data} alt="" style={{width:40,height:40,objectFit:"cover",borderRadius:5}}/>
                         ))}
                         {(s.photos||[]).length>5&&(
-                          <div style={{width:40,height:40,borderRadius:5,background:"#eee",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#999"}}>+{(s.photos||[]).length-5}</div>
+                          <div style={{width:40,height:40,borderRadius:5,background:"#eee",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:TH.T3}}>+{(s.photos||[]).length-5}</div>
                         )}
                       </div>
                     )}
@@ -824,14 +972,14 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                   <div style={{display:"flex",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
                     {/* Assign to group */}
                     <select value={s.groupId||""} onChange={e=>assignSessionToGroup(s.id,e.target.value||null)}
-                      style={{fontSize:11,border:"1px solid #eee",borderRadius:6,padding:"2px 4px",color:"#999",background:"#fff",maxWidth:90}}>
+                      style={{fontSize:11,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"2px 4px",color:TH.T3,background:"#fff",maxWidth:90}}>
                       <option value="">모임없음</option>
                       {groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
                     </select>
                     <button onClick={()=>{setEditingNameId(s.id);setEditingNameVal(s.name);}}
-                      style={{background:"none",border:"none",color:"#ccc",fontSize:14,cursor:"pointer"}}>✏️</button>
+                      style={{background:"none",border:"none",color:TH.T3,fontSize:14,cursor:"pointer"}}>✏️</button>
                     <button onClick={()=>deleteSession(s.id)}
-                      style={{background:"none",border:"none",color:"#ccc",fontSize:16,cursor:"pointer"}}>🗑</button>
+                      style={{background:"none",border:"none",color:TH.T3,fontSize:16,cursor:"pointer"}}>🗑</button>
                   </div>
                 </div>
               </div>
@@ -947,8 +1095,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       return (
         <div style={{marginBottom:8}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-            <span style={{fontSize:12,fontWeight:600,color:"#555"}}>{label}</span>
-            <span style={{fontSize:11,color:"#888"}}>{ep}% 정확 · {cp}% 근접</span>
+            <span style={{fontSize:12,fontWeight:600,color:TH.T2}}>{label}</span>
+            <span style={{fontSize:11,color:TH.T2}}>{ep}% 정확 · {cp}% 근접</span>
           </div>
           <div style={{height:10,borderRadius:5,overflow:"hidden",display:"flex",background:"#f0f0f0"}}>
             {ep>0&&<div style={{width:`${ep}%`,background:"#2E7D32",transition:"width .3s"}}/>}
@@ -974,7 +1122,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       text:trend>=0?`최근 3세션 적중률 상승 추세 (+${trend}%p)`:`최근 3세션 적중률 하락 추세 (${trend}%p)`});
 
     return (
-      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
         <div style={{background:RED,color:"#fff",padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
           <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
           <span style={{fontSize:17,fontWeight:700}}>📊 성과 대시보드</span>
@@ -992,7 +1140,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           )}
 
           {totalGames===0 ? (
-            <div style={{textAlign:"center",color:"#bbb",padding:64,fontSize:14}}>
+            <div style={{textAlign:"center",color:TH.T3,padding:64,fontSize:14}}>
               공개된 세션이 없습니다.<br/>블라인드 테이스팅을 진행하고 정답을 공개해보세요.
             </div>
           ) : (
@@ -1004,7 +1152,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 ].map(([lbl,val,col])=>(
                   <div key={lbl} style={{...CS,textAlign:"center",marginBottom:0}}>
                     <div style={{fontSize:20,fontWeight:800,color:col}}>{val}</div>
-                    <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{lbl}</div>
+                    <div style={{fontSize:11,color:TH.T3,marginTop:2}}>{lbl}</div>
                   </div>
                 ))}
               </div>
@@ -1012,39 +1160,39 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               {/* Time series */}
               {sessionData.length>=2&&(
                 <div style={CS}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#555",marginBottom:12}}>📈 세션별 적중률 추이</div>
+                  <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:12}}>📈 세션별 적중률 추이</div>
                   <div style={{overflowX:"auto"}}>
                     <LineChart data={sessionData} w={Math.max(320, sessionData.length*60+40)} h={130}/>
                   </div>
                 </div>
               )}
               {sessionData.length===1&&(
-                <div style={{...CS,textAlign:"center",color:"#bbb",fontSize:12}}>2회 이상 참여하면 추이 차트가 표시됩니다</div>
+                <div style={{...CS,textAlign:"center",color:TH.T3,fontSize:12}}>2회 이상 참여하면 추이 차트가 표시됩니다</div>
               )}
 
               {/* Field accuracy */}
               <div style={CS}>
-                <div style={{fontSize:13,fontWeight:700,color:"#555",marginBottom:12}}>🎯 항목별 정확도</div>
+                <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:12}}>🎯 항목별 정확도</div>
                 {FIELD_KEYS.map(k=><FieldBar key={k} label={FIELD_LABELS[k]} ft={fieldTotals[k]}/>)}
-                <div style={{display:"flex",gap:12,marginTop:8,fontSize:10,color:"#999"}}>
+                <div style={{display:"flex",gap:12,marginTop:8,fontSize:10,color:TH.T3}}>
                   <span><span style={{display:"inline-block",width:10,height:10,background:"#2E7D32",borderRadius:2,marginRight:3}}/>정확</span>
                   <span><span style={{display:"inline-block",width:10,height:10,background:GOLD,borderRadius:2,marginRight:3}}/>근접</span>
-                  <span><span style={{display:"inline-block",width:10,height:10,background:"#f0f0f0",border:"1px solid #ddd",borderRadius:2,marginRight:3}}/>오답</span>
+                  <span><span style={{display:"inline-block",width:10,height:10,background:"#f0f0f0",border:`1px solid ${TH.BD}`,borderRadius:2,marginRight:3}}/>오답</span>
                 </div>
               </div>
 
               {/* Session history */}
               <div style={CS}>
-                <div style={{fontSize:13,fontWeight:700,color:"#555",marginBottom:10}}>📋 세션별 기록</div>
+                <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:10}}>📋 세션별 기록</div>
                 {[...sessionData].reverse().map((s,i)=>{
                   const grp=groups.find(g=>g.id===s.groupId);
                   return (
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #f7f4f0"}}>
-                      <span style={{fontSize:11,color:"#aaa",width:40,flexShrink:0}}>{s.date?.slice(5)}</span>
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${TH.BD}`}}>
+                      <span style={{fontSize:11,color:TH.T3,width:40,flexShrink:0}}>{s.date?.slice(5)}</span>
                       <div style={{flex:1,minWidth:0}}>
                         <span style={{fontSize:13,fontWeight:600}}>{s.name}</span>
                         {grp&&<span style={{fontSize:10,color:grp.color,marginLeft:6}}>{grp.name}</span>}
-                        <span style={{fontSize:11,color:"#aaa",marginLeft:6}}>{s.wines}종</span>
+                        <span style={{fontSize:11,color:TH.T3,marginLeft:6}}>{s.wines}종</span>
                       </div>
                       <span style={{fontSize:16,fontWeight:700,color:s.avg>=70?"#2E7D32":s.avg>=40?"#92400E":"#991B1B"}}>{s.avg}%</span>
                     </div>
@@ -1055,17 +1203,96 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               {/* Insights */}
               {insights.length>0&&(
                 <div style={CS}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#555",marginBottom:10}}>💡 인사이트</div>
+                  <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:10}}>💡 인사이트</div>
                   {insights.map((ins,i)=>(
                     <div key={i} style={{display:"flex",gap:8,marginBottom:7,alignItems:"flex-start"}}>
                       <span style={{fontSize:14}}>{ins.type==="strong"?"🟢":ins.type==="weak"?"🔴":ins.type==="confusion"?"🔀":ins.type==="up"?"📈":"📉"}</span>
-                      <span style={{fontSize:13,color:"#555",lineHeight:1.4}}>{ins.text}</span>
+                      <span style={{fontSize:13,color:TH.T2,lineHeight:1.4}}>{ins.text}</span>
                     </div>
                   ))}
                 </div>
               )}
             </>
           )}
+
+          {/* ── 미각 싱크로율 ── */}
+          {(()=>{
+            // 두 참가자 간 싱크로율 계산
+            const allParts = [...new Set(sessions.flatMap(s=>s.participants||[]))].filter(Boolean);
+            if(allParts.length < 2) return null;
+
+            const syncRate = (pA, pB) => {
+              let agree=0, total=0;
+              for(const s of sessions) {
+                if(!s.revealed||!s.answers) continue;
+                if(!(s.participants.includes(pA)&&s.participants.includes(pB))) continue;
+                for(let i=0;i<s.wineCount;i++) {
+                  const wno=i+1, ans=s.answers[wno]||{};
+                  const gA=s.guesses?.[pA]?.[wno]||{};
+                  const gB=s.guesses?.[pB]?.[wno]||{};
+                  if(!(gA.country||gA.region)&&!(gB.country||gB.region)) continue;
+                  // 국가
+                  if(gA.country&&gB.country){total++;if(norm(gA.country)===norm(gB.country))agree++;}
+                  // 지역
+                  if(gA.region&&gB.region){total++;if(norm(gA.region)===norm(gB.region))agree++;}
+                  // 품종
+                  if(gA.grape&&gB.grape){total++;
+                    const sA=new Set((gA.grape).split(",").map(x=>norm(x.trim())));
+                    const sB=new Set((gB.grape).split(",").map(x=>norm(x.trim())));
+                    const inter=[...sA].filter(x=>sB.has(x)).length;
+                    if(inter>0)agree++;
+                  }
+                  // 빈티지
+                  if(gA.vintage&&gB.vintage){total++;
+                    if(Math.abs(parseInt(gA.vintage)-parseInt(gB.vintage))<=2)agree++;
+                  }
+                }
+              }
+              return total>0 ? Math.round(agree/total*100) : null;
+            };
+
+            const soulmateMsg = (r) => {
+              if(r>=90) return {msg:"사실상 하나의 혀를 공유 중! 🧬", color:"#2E7D32"};
+              if(r>=75) return {msg:"취향 공명 파트너 🎵", color:"#1E6FA0"};
+              if(r>=60) return {msg:"비슷한 방향을 보고 있어요 🎯", color:"#7B68EE"};
+              if(r>=45) return {msg:"미묘하게 다른 두 혀 🤔", color:"#D97706"};
+              if(r>=30) return {msg:"서로 다른 우주에 삽니다 🌍", color:"#92400E"};
+              return {msg:"의견 충돌 99% 예상 🎭", color:"#991B1B"};
+            };
+
+            // 모든 조합 계산
+            const pairs = [];
+            for(let i=0;i<allParts.length;i++)
+              for(let j=i+1;j<allParts.length;j++) {
+                const r = syncRate(allParts[i], allParts[j]);
+                if(r!==null) pairs.push({a:allParts[i], b:allParts[j], rate:r, ...soulmateMsg(r)});
+              }
+            if(pairs.length===0) return null;
+            pairs.sort((a,b)=>b.rate-a.rate);
+
+            return (
+              <div style={CS}>
+                <div style={{fontSize:13,fontWeight:700,color:TH.T1,marginBottom:12}}>🔗 미각 싱크로율</div>
+                <div style={{fontSize:11,color:TH.T3,marginBottom:12}}>같은 세션에서 얼마나 비슷하게 추측했는지 — 국가/지역/품종/빈티지 기준</div>
+                {pairs.map(({a,b,rate,msg,color})=>(
+                  <div key={a+b} style={{padding:"12px 0",borderBottom:`1px solid ${TH.BD}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <span style={{fontSize:14,fontWeight:700,color:TH.T1}}>{a}</span>
+                      <span style={{fontSize:12,color:TH.T3}}>·</span>
+                      <span style={{fontSize:14,fontWeight:700,color:TH.T1}}>{b}</span>
+                      <span style={{marginLeft:"auto",fontSize:20,fontWeight:800,color}}>{rate}%</span>
+                    </div>
+                    {/* 싱크로 바 */}
+                    <div style={{height:8,background:TH.BD,borderRadius:4,marginBottom:6,overflow:"hidden"}}>
+                      <div style={{width:`${rate}%`,height:"100%",background:color,borderRadius:4,transition:"width .4s"}}/>
+                    </div>
+                    <div style={{fontSize:12,color,fontWeight:600}}>{msg}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
         </div>
       </div>
     );
@@ -1074,19 +1301,19 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   // ════ SETUP VIEW ════
   if(view==="setup") {
     return (
-      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
         <div style={{background:RED,color:"#fff",padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
           <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
           <span style={{fontSize:17,fontWeight:700}}>세션 설정</span>
         </div>
         <div style={{padding:16,maxWidth:640,margin:"0 auto"}}>
           <div style={CS}>
-            <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>세션 이름</div>
+            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>세션 이름</div>
             <input value={sName} onChange={e=>setSName(e.target.value)}
-              style={{width:"100%",border:"1px solid #ddd",borderRadius:6,padding:"8px 10px",fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:14}}/>
+              style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"8px 10px",fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:14}}/>
             {groups.length>0&&(
               <>
-                <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>모임 (선택)</div>
+                <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>모임 (선택)</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
                   <button onClick={()=>setSGroupId(null)}
                     style={{padding:"6px 12px",border:`1px solid ${!sGroupId?RED:"#ddd"}`,borderRadius:18,fontSize:12,fontWeight:!sGroupId?700:400,background:!sGroupId?RED:"#fff",color:!sGroupId?"#fff":"#666",cursor:"pointer"}}>단독</button>
@@ -1097,29 +1324,47 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 </div>
               </>
             )}
-            <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>와인 수</div>
+            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>와인 수</div>
             <div style={{display:"flex",gap:8,marginBottom:14}}>
               {[1,2,3,4,5,6,8].map(n=>(
                 <button key={n} onClick={()=>setSCount(n)}
                   style={{flex:1,padding:"8px",border:`1px solid ${sCount===n?RED:"#ddd"}`,borderRadius:8,background:sCount===n?RED:"#fff",color:sCount===n?"#fff":"#666",fontWeight:sCount===n?700:400,fontSize:13,cursor:"pointer"}}>{n}</button>
               ))}
             </div>
-            <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>참가자</div>
+            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>참가자</div>
             {sParts.map((p,i)=>(
               <div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
                 <input value={p} onChange={e=>{const a=[...sParts];a[i]=e.target.value;setSParts(a);}}
-                  placeholder="이름" style={{flex:1,border:"1px solid #ddd",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none"}}/>
-                <button onClick={()=>setSParts(sParts.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#ccc",fontSize:16,cursor:"pointer"}}>×</button>
+                  placeholder="이름" style={{flex:1,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none"}}/>
+                <button onClick={()=>setSParts(sParts.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:TH.T3,fontSize:16,cursor:"pointer"}}>×</button>
               </div>
             ))}
-            <button onClick={()=>setSParts([...sParts,""])} style={{border:"1px dashed #ddd",borderRadius:6,padding:"7px 12px",fontSize:12,color:"#aaa",background:"none",cursor:"pointer",marginTop:4}}>+ 참가자 추가</button>
+            <button onClick={()=>setSParts([...sParts,""])} style={{border:"1px dashed #ddd",borderRadius:6,padding:"7px 12px",fontSize:12,color:TH.T3,background:"none",cursor:"pointer",marginTop:4}}>+ 참가자 추가</button>
           </div>
 
           {/* Answer mode */}
           <div style={CS}>
-            <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:8}}>정답 입력 시점</div>
+            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:8}}>정답 입력 시점</div>
             <div style={{display:"flex",gap:8,marginBottom:10}}>
-              <button onClick={()=>setSAnswerMode("prefill")}
+              {/* 🎉 모임 스타일 선택 */}
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:8}}>모임 스타일</div>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={()=>setSPartyMode(false)}
+                    style={{flex:1,padding:"12px 8px",border:`2px solid ${!sPartyMode?RED:"#ddd"}`,borderRadius:12,
+                      background:!sPartyMode?"#FDF1F2":TH.CARD,cursor:"pointer",textAlign:"left"}}>
+                    <div style={{fontSize:15,marginBottom:2}}>🎯 진지</div>
+                    <div style={{fontSize:11,color:TH.T2}}>6개 항목 · AI 채점 · 상세 분석</div>
+                  </button>
+                  <button onClick={()=>setSPartyMode(true)}
+                    style={{flex:1,padding:"12px 8px",border:`2px solid ${sPartyMode?"#D97706":"#ddd"}`,borderRadius:12,
+                      background:sPartyMode?"#FEF3C7":TH.CARD,cursor:"pointer",textAlign:"left"}}>
+                    <div style={{fontSize:15,marginBottom:2}}>🎉 파티</div>
+                    <div style={{fontSize:11,color:TH.T2}}>4개 항목 · 이모지 결과 · 부담없이</div>
+                  </button>
+                </div>
+              </div>
+                            <button onClick={()=>setSAnswerMode("prefill")}
                 style={{flex:1,padding:"10px 8px",border:`1px solid ${sAnswerMode==="prefill"?RED:"#ddd"}`,borderRadius:8,background:sAnswerMode==="prefill"?"#FDF1F2":"#fff",color:sAnswerMode==="prefill"?RED:"#666",cursor:"pointer",textAlign:"left"}}>
                 <div style={{fontSize:13,fontWeight:700}}>🔒 미리 등록</div>
                 <div style={{fontSize:11,opacity:.8,marginTop:2}}>혼자 진행 / 한 명이 정답 관리</div>
@@ -1145,13 +1390,13 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           {/* Scoring rubric */}
           <div style={CS}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#888"}}>채점 기준 (항목별 가중치)</div>
+              <div style={{fontSize:11,fontWeight:600,color:TH.T2}}>채점 기준 (항목별 가중치)</div>
               <button onClick={()=>setSRubric(JSON.parse(JSON.stringify(DEFAULT_RUBRIC)))}
-                style={{background:"none",border:"1px solid #ddd",borderRadius:6,padding:"3px 10px",fontSize:11,color:"#888",cursor:"pointer"}}>
+                style={{background:"none",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"3px 10px",fontSize:11,color:TH.T2,cursor:"pointer"}}>
                 ↺ 기본값 복원
               </button>
             </div>
-            <div style={{fontSize:11,color:"#aaa",marginBottom:10}}>0으로 두면 채점에서 제외됩니다. 만점은 가중치 합.</div>
+            <div style={{fontSize:11,color:TH.T3,marginBottom:10}}>0으로 두면 채점에서 제외됩니다. 만점은 가중치 합.</div>
             {[["country","국가"],["region","지역"],["village","마을/밭"],["classification","등급"],["grape","품종"],["vintage","빈티지"]].map(([k,label])=>(
               <div key={k} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
                 <span style={{fontSize:13,width:64,flexShrink:0}}>{label}</span>
@@ -1163,7 +1408,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 </span>
               </div>
             ))}
-            <div style={{borderTop:"1px solid #f0ece8",marginTop:10,paddingTop:10}}>
+            <div style={{borderTop:`1px solid ${TH.BD}`,marginTop:10,paddingTop:10}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
                 <span style={{fontSize:13,width:90,flexShrink:0}}>빈티지 근접</span>
                 <div style={{display:"flex",gap:6}}>
@@ -1184,7 +1429,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               </div>
             </div>
             {/* 정성 평가 비율 */}
-            <div style={{borderTop:"1px solid #f0ece8",marginTop:10,paddingTop:10}}>
+            <div style={{borderTop:`1px solid ${TH.BD}`,marginTop:10,paddingTop:10}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
                 <span style={{fontSize:13,flex:1}}>🤖 AI 정성 평가</span>
                 <div style={{display:"flex",gap:6}}>
@@ -1195,7 +1440,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 </div>
               </div>
               {sRubric.qualRatio>0&&(
-                <div style={{fontSize:11,color:"#888",background:"#f9f9f9",borderRadius:6,padding:"6px 10px"}}>
+                <div style={{fontSize:11,color:TH.T2,background:"#f9f9f9",borderRadius:6,padding:"6px 10px"}}>
                   정량 {Math.round((1-sRubric.qualRatio)*100)}% + AI 정성 {Math.round(sRubric.qualRatio*100)}% · 결과 화면에서 AI 평가 버튼으로 실행
                 </div>
               )}
@@ -1220,7 +1465,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       return a.nameKR||a.nameEN||a.region||a.grapeVariety;
     });
     return (
-      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
         <div style={{background:"#3B2A1A",color:"#fff",padding:"16px 18px"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
             <button onClick={()=>setView("setup")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
@@ -1236,16 +1481,16 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             const wno=i+1, ans=cur.answers[wno]||{};
             return (
               <div key={wno} style={CS}>
-                <div style={{fontSize:16,fontWeight:800,color:"#3B2A1A",marginBottom:12}}>#{wno}</div>
+                <div style={{fontSize:16,fontWeight:800,color:TH.T1,marginBottom:12}}>#{wno}</div>
                 {/* 와인 이름 (정답에만 있음) */}
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>와인 이름</div>
+                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>와인 이름</div>
                   <input value={ans.nameKR||""} onChange={e=>updateAnswer(wno,"nameKR",e.target.value)} placeholder="예: 주브레 샹베르탱 레숌"
-                    style={{width:"100%",border:"1px solid #ddd",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                    style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
                 </div>
                 {(()=>{const {ACountry,ARegion,AVillage,AClassification,AGrape,AVintage}=makeAnswerComponents(wno); return(<>{ACountry()}{ARegion()}{AVillage()}{AClassification()}{AGrape()}{AVintage()}</>);})()}
                 {/* Bringer selector */}
-                <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:5}}>가져온 사람 (출제자)</div>
+                <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:5}}>가져온 사람 (출제자)</div>
                 <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
                   <button onClick={()=>updateAnswer(wno,"bringer","")}
                     style={{padding:"5px 11px",border:`1px solid ${!ans.bringer?RED:"#ddd"}`,borderRadius:18,fontSize:12,fontWeight:!ans.bringer?700:400,background:!ans.bringer?RED:"#fff",color:!ans.bringer?"#fff":"#666",cursor:"pointer"}}>없음</button>
@@ -1254,7 +1499,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                       style={{padding:"5px 11px",border:`1px solid ${ans.bringer===pp?RED:"#ddd"}`,borderRadius:18,fontSize:12,fontWeight:ans.bringer===pp?700:400,background:ans.bringer===pp?RED:"#fff",color:ans.bringer===pp?"#fff":"#666",cursor:"pointer"}}>{pp}</button>
                   ))}
                 </div>
-                <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:5}}>채점 목표 <span style={{fontWeight:400,color:"#bbb"}}>(어디까지 맞혀야 만점)</span></div>
+                <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:5}}>채점 목표 <span style={{fontWeight:400,color:TH.T3}}>(어디까지 맞혀야 만점)</span></div>
                 <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                   {[["country","국가까지"],["region","지역까지"],["village","마을까지"],["full","전체(품종·등급·빈티지)"]].map(([dv,dl])=>{
                     const d=ans.depth||"full";
@@ -1271,7 +1516,9 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             style={{width:"100%",background:allFilled?RED:"#ccc",color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:allFilled?"pointer":"default"}}>
             🔒 정답 잠금 & 시음 시작 →
           </button>
-          {!allFilled&&<div style={{fontSize:11,color:"#aaa",textAlign:"center",marginTop:8}}>모든 와인의 정보를 입력해주세요</div>}
+          {!allFilled&&<div style={{fontSize:11,color:TH.T3,textAlign:"center",marginTop:8}}>모든 와인의 정보를 입력해주세요</div>}
+        <ToastContainer toasts={toasts}/>
+        {confirmModal&&<ConfirmModal {...confirmModal}/>}
         </div>
       </div>
     );
@@ -1285,7 +1532,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     const isBringer=(cur.answers[wno]?.bringer===p);
     const lastWine=wineIdx===cur.wineCount-1, lastP=pIdx===guessers.length-1;
     return (
-      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
         <div style={{background:RED,color:"#fff",padding:"16px 18px"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
             <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
@@ -1302,7 +1549,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           {/* Wine number + participant indicator */}
           <div style={{textAlign:"center",marginBottom:14}}>
             <div style={{fontSize:32,fontWeight:800,color:RED}}>#{wno}</div>
-            <div style={{fontSize:13,color:"#888",marginTop:4}}>작성자: <b style={{color:"#333"}}>{p}</b> ({pIdx+1}/{guessers.length})</div>
+            <div style={{fontSize:13,color:TH.T2,marginTop:4}}>작성자: <b style={{color:TH.T1}}>{p}</b> ({pIdx+1}/{guessers.length})</div>
             {cur.answers[wno]?.depth&&cur.answers[wno].depth!=="full"&&(
               <div style={{display:"inline-block",marginTop:6,background:"#FBF4E4",color:"#7a5c10",borderRadius:14,padding:"3px 12px",fontSize:11,fontWeight:600}}>
                 🎯 이 와인은 {({country:"국가",region:"지역",village:"마을"})[cur.answers[wno].depth]}까지 맞히면 OK
@@ -1313,7 +1560,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           {/* Reveal mode: set "가져온 사람" up-front (answer stays hidden) so the bringer can skip guessing */}
           {cur.answerMode==="reveal" && (
             <div style={{...CS,paddingTop:12,paddingBottom:12}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>이 와인 가져온 사람 <span style={{fontWeight:400,color:"#bbb"}}>(출제자는 추측 제외)</span></div>
+              <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>이 와인 가져온 사람 <span style={{fontWeight:400,color:TH.T3}}>(출제자는 추측 제외)</span></div>
               <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                 <button onClick={()=>updateAnswer(wno,"bringer","")}
                   style={{padding:"5px 11px",border:`1px solid ${!cur.answers[wno]?.bringer?RED:"#ddd"}`,borderRadius:18,fontSize:12,fontWeight:!cur.answers[wno]?.bringer?700:400,background:!cur.answers[wno]?.bringer?RED:"#fff",color:!cur.answers[wno]?.bringer?"#fff":"#666",cursor:"pointer"}}>없음</button>
@@ -1328,64 +1575,80 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           {isBringer && (
             <div style={{...CS,background:"#FBF4E4",border:`1px solid ${GOLD}40`}}>
               <div style={{fontSize:13,fontWeight:700,color:"#7a5c10",marginBottom:4}}>🍾 이 와인을 가져오셨네요</div>
-              <div style={{fontSize:12,color:"#999"}}>출제자는 추측 없이 시음 평가만 작성합니다.</div>
+              <div style={{fontSize:12,color:TH.T3}}>출제자는 추측 없이 시음 평가만 작성합니다.</div>
             </div>
           )}
           {!isBringer && (
           <div style={CS}>
-            <div style={{fontSize:13,fontWeight:700,color:"#555",marginBottom:12}}>🔍 추론</div>
+            <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:12}}>{cur.partyMode?"🎉 내 픽":"🔍 추론"}</div>
+            {/* 공통: 국가 + 지역 */}
             {GCountry()}
             {GRegion()}
-            {GVillage()}
-            {/* Classification selector */}
-            <div style={{marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>등급{gval("region")&&REGION_CLASSES[gval("region")]&&<span style={{fontWeight:400,color:"#bbb",fontSize:10}}> · {gval("region")} 체계</span>}</div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                {(()=>{
-                  const allClasses={regional:"지역급",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
-                  const region=gval("region");
-                  const allowed=REGION_CLASSES[region]||DEFAULT_CLASSES;
-                  return allowed.map(v=>[v,allClasses[v]]);
-                })().map(([v,l])=>{
-                  const cur_v=cur.guesses[p_]?.[wno_]?.classification||"";
-                  const sel=cur_v===v||(v==="other"&&cur_v&&!["regional","village","premiercru","grandcru"].includes(cur_v));
-                  return (
-                    <button key={v} onClick={()=>updateGuess("classification",v==="other"?"기타":v)}
-                      style={{padding:"6px 11px",border:`1px solid ${sel?RED:"#ddd"}`,borderRadius:18,fontSize:12,fontWeight:sel?700:400,background:sel?RED:"#fff",color:sel?"#fff":"#666",cursor:"pointer"}}>{l}</button>
-                  );
-                })}
-              </div>
-            </div>
-            {GGrape()}
-            {/* 빈티지: JSX 컴포넌트 대신 인라인으로 (포커스 유실 방지) */}
-            <div style={{marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>빈티지 추정</div>
-              <input value={gval("vintage")} onChange={e=>updateGuess("vintage",e.target.value)}
-                placeholder="예: 2018~2020 또는 2019" style={IST}/>
-            </div>
-            <div style={{marginBottom:0}}>
-              <div style={{fontSize:11,fontWeight:600,color:RED,marginBottom:4}}>💭 이렇게 픽한 이유</div>
-              <textarea value={cur.guesses[p]?.[wno]?.reason||""} onChange={e=>updateGuess("reason",e.target.value)}
-                placeholder="예: 높은 산도와 미네랄, 환원 뉘앙스 → 부르고뉴 샤르도네. 오크 절제된 걸 보니 샤블리 계열로 추측"
-                rows={3} style={{width:"100%",border:"1px solid #ddd",borderRadius:6,padding:"8px 10px",fontSize:13,outline:"none",boxSizing:"border-box",lineHeight:1.5,resize:"vertical"}}/>
-            </div>
+            {cur.partyMode ? (
+              /* ── 파티 모드: 품종 + 빈티지만 ── */
+              <>
+                {GGrape()}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지 추정</div>
+                  <input value={gval("vintage")} onChange={e=>updateGuess("vintage",e.target.value)}
+                    placeholder="예: 2019" style={{...IST,width:120}}/>
+                </div>
+              </>
+            ) : (
+              /* ── 진지 모드: 전체 항목 ── */
+              <>
+                {GVillage()}
+                {/* Classification */}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>등급{gval("region")&&REGION_CLASSES[gval("region")]&&<span style={{fontWeight:400,color:TH.T3,fontSize:10}}> · {gval("region")} 체계</span>}</div>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {(()=>{
+                      const allClasses={regional:"지역급",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
+                      const region=gval("region");
+                      const allowed=REGION_CLASSES[region]||DEFAULT_CLASSES;
+                      return allowed.map(v=>[v,allClasses[v]]);
+                    })().map(([v,l])=>{
+                      const cur_v=cur.guesses[p_]?.[wno_]?.classification||"";
+                      const sel=cur_v===v||(v==="other"&&cur_v&&!["regional","village","premiercru","grandcru"].includes(cur_v));
+                      return (
+                        <button key={v} onClick={()=>updateGuess("classification",v==="other"?"기타":v)}
+                          style={{padding:"6px 11px",border:`1px solid ${sel?RED:TH.BD}`,borderRadius:18,fontSize:12,fontWeight:sel?700:400,background:sel?RED:TH.CARD,color:sel?"#fff":TH.T2,cursor:"pointer"}}>{l}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {GGrape()}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지 추정</div>
+                  <input value={gval("vintage")} onChange={e=>updateGuess("vintage",e.target.value)}
+                    placeholder="예: 2018~2020 또는 2019" style={IST}/>
+                </div>
+                <div style={{marginBottom:0}}>
+                  <div style={{fontSize:11,fontWeight:600,color:RED,marginBottom:4}}>💭 이렇게 픽한 이유 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
+                  <textarea value={cur.guesses[p]?.[wno]?.reason||""} onChange={e=>updateGuess("reason",e.target.value)}
+                    placeholder="예: 높은 산도와 미네랄, 환원 뉘앙스 → 부르고뉴 샤르도네"
+                    rows={3} style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:12,outline:"none",resize:"vertical",boxSizing:"border-box",background:TH.INP,color:TH.T1}}/>
+                </div>
+              </>
+            )}
           </div>
           )}
+
           {/* Tasting eval — everyone incl. bringer */}
           <div style={CS}>
-            <div style={{fontSize:13,fontWeight:700,color:"#555",marginBottom:12}}>🍷 시음 평가</div>
+            <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:12}}>🍷 시음 평가</div>
             {isBringer && (
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:11,fontWeight:600,color:RED,marginBottom:4}}>💬 메모 (자유)</div>
                 <textarea value={cur.guesses[p]?.[wno]?.reason||""} onChange={e=>updateGuess("reason",e.target.value)}
                   placeholder="이 와인을 고른 이유, 시음 소감 등"
-                  rows={3} style={{width:"100%",border:"1px solid #ddd",borderRadius:6,padding:"8px 10px",fontSize:13,outline:"none",boxSizing:"border-box",lineHeight:1.5,resize:"vertical"}}/>
+                  rows={3} style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"8px 10px",fontSize:13,outline:"none",boxSizing:"border-box",lineHeight:1.5,resize:"vertical"}}/>
               </div>
             )}
             <div style={{display:"flex",gap:10,alignItems:"center"}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#888"}}>내 점수</div>
+              <div style={{fontSize:11,fontWeight:600,color:TH.T2}}>내 점수</div>
               <input type="number" min="0" max="100" value={cur.guesses[p]?.[wno]?.score||""} onChange={e=>updateGuess("score",e.target.value)}
-                placeholder="0-100" style={{width:90,border:"1px solid #ddd",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none"}}/>
+                placeholder="0-100" style={{width:90,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none"}}/>
             </div>
           </div>
 
@@ -1395,7 +1658,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               <button onClick={()=>{
                 if(pIdx>0)setPIdx(pIdx-1);
                 else{setWineIdx(wineIdx-1);setPIdx(guessers.length-1);}
-              }} style={{flex:1,background:"#fff",border:"1px solid #ddd",borderRadius:10,padding:"12px",fontSize:14,color:"#666",cursor:"pointer"}}>← 이전</button>
+              }} style={{flex:1,background:"#fff",border:`1px solid ${TH.BD}`,borderRadius:10,padding:"12px",fontSize:14,color:TH.T2,cursor:"pointer"}}>← 이전</button>
             )}
             {!(lastWine&&lastP)?(
               <button onClick={()=>{
@@ -1421,25 +1684,25 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   // ════ REVEAL VIEW (enter answers) ════
   if(view==="reveal"&&cur) {
     return (
-      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
         <div style={{background:GOLD,color:"#fff",padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
           <button onClick={()=>setView("taste")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
           <span style={{fontSize:17,fontWeight:700}}>🎉 정답 입력</span>
         </div>
         <div style={{padding:16,maxWidth:640,margin:"0 auto"}}><datalist id="dl-all-regions">{Object.values(WINE_ORIGINS).flatMap(rg=>Object.keys(rg)).map(r=><option key={r} value={r}/>)}</datalist><datalist id="dl-villages">{[...new Set(Object.values(WINE_ORIGINS).flatMap(rg=>Object.values(rg).flat()))].map(v=><option key={v} value={v}/>)}</datalist><datalist id="dl-grapes">{GRAPE_LIST.map(g=><option key={g} value={g}/>)}</datalist>
-          <div style={{fontSize:12,color:"#888",marginBottom:14,textAlign:"center"}}>각 와인의 실제 정보를 입력하세요. 셀러에서 선택하거나 직접 입력 가능합니다.</div>
+          <div style={{fontSize:12,color:TH.T2,marginBottom:14,textAlign:"center"}}>각 와인의 실제 정보를 입력하세요. 셀러에서 선택하거나 직접 입력 가능합니다.</div>
           {Array.from({length:cur.wineCount}).map((_,i)=>{
             const wno=i+1, ans=cur.answers[wno]||{};
             return (
               <div key={wno} style={CS}>
                 <div style={{fontSize:16,fontWeight:800,color:RED,marginBottom:12}}>#{wno}</div>
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:4}}>와인 이름</div>
+                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>와인 이름</div>
                   <input value={ans.nameKR||""} onChange={e=>updateAnswer(wno,"nameKR",e.target.value)} placeholder="예: 주브레 샹베르탱 레숌"
-                    style={{width:"100%",border:"1px solid #ddd",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                    style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
                 </div>
                 {(()=>{const {ACountry,ARegion,AVillage,AClassification,AGrape,AVintage}=makeAnswerComponents(wno); return(<>{ACountry()}{ARegion()}{AVillage()}{AClassification()}{AGrape()}{AVintage()}</>);})()}
-                <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:5}}>가져온 사람 (출제자)</div>
+                <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:5}}>가져온 사람 (출제자)</div>
                 <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
                   <button onClick={()=>updateAnswer(wno,"bringer","")}
                     style={{padding:"5px 11px",border:`1px solid ${!ans.bringer?RED:"#ddd"}`,borderRadius:18,fontSize:12,fontWeight:!ans.bringer?700:400,background:!ans.bringer?RED:"#fff",color:!ans.bringer?"#fff":"#666",cursor:"pointer"}}>없음</button>
@@ -1448,7 +1711,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                       style={{padding:"5px 11px",border:`1px solid ${ans.bringer===pp?RED:"#ddd"}`,borderRadius:18,fontSize:12,fontWeight:ans.bringer===pp?700:400,background:ans.bringer===pp?RED:"#fff",color:ans.bringer===pp?"#fff":"#666",cursor:"pointer"}}>{pp}</button>
                   ))}
                 </div>
-                <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:5}}>채점 목표 <span style={{fontWeight:400,color:"#bbb"}}>(어디까지 맞혀야 만점)</span></div>
+                <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:5}}>채점 목표 <span style={{fontWeight:400,color:TH.T3}}>(어디까지 맞혀야 만점)</span></div>
                 <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                   {[["country","국가까지"],["region","지역까지"],["village","마을까지"],["full","전체(품종·등급·빈티지)"]].map(([dv,dl])=>{
                     const d=ans.depth||"full";
@@ -1469,6 +1732,123 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     );
   }
 
+
+  // ── 파티 모드 결과 화면 ────────────────────────────────────────
+  if(view==="summary"&&cur&&cur.partyMode) {
+    const emojiScore = (lvl) => lvl==="exact"?"⭕":lvl==="close"?"△":"✕";
+    const funMsg = (hits, total) => {
+      const r = hits/total;
+      if(r===1)  return "🏆 퍼펙트!";
+      if(r>=0.75) return "🎉 거의 다 맞혔어요!";
+      if(r>=0.5)  return "🍷 꽤 잘했어요!";
+      if(r>=0.25) return "😄 감이 잡혀가네요!";
+      return "😂 와인이 너무 어려워!";
+    };
+    // Compute party scores (country/region/grape/vintage only)
+    const partyScores = {};
+    for(const p of cur.participants) {
+      partyScores[p] = {total:0, hits:0, wines:[]};
+      for(let i=0;i<cur.wineCount;i++) {
+        const wno=i+1, ans=cur.answers?.[wno]||{};
+        if(ans.bringer===p) continue;
+        const g=cur.guesses?.[p]?.[wno]||{};
+        if(!(g.country||g.region||g.grape||g.vintage)) continue;
+        const fields = [
+          {label:"국가", lvl:levelField(g.country,ans.country)},
+          {label:"지역", lvl:levelField(g.region,ans.region)},
+          {label:"품종", lvl:levelGrape(g.grape,ans.grapeVariety)},
+          {label:"빈티지", lvl:levelVintage(g.vintage,ans.vintage,cur.rubric?.vintageTol??2)},
+        ];
+        const hits = fields.filter(f=>f.lvl.level!=="miss"&&f.lvl.level!=="none").length;
+        const valid = fields.filter(f=>f.lvl.level!=="none").length;
+        partyScores[p].wines.push({wno,ans,g,fields,hits,valid});
+        partyScores[p].total+=valid; partyScores[p].hits+=hits;
+      }
+    }
+    const ranked = Object.entries(partyScores)
+      .filter(([,v])=>v.total>0)
+      .sort((a,b)=>b[1].hits/b[1].total - a[1].hits/a[1].total);
+    const winner = ranked[0]?.[0];
+
+    return (
+      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
+        {/* Header */}
+        <div style={{background:RED,color:"#fff",padding:"14px 16px",display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:700}}>{cur.name}</div>
+            <div style={{fontSize:11,opacity:.8}}>🎉 파티 모드 · 와인 {cur.wineCount}종</div>
+          </div>
+          <button onClick={()=>{setActive(null);setView("list");}}
+            style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:8,padding:"5px 10px",fontSize:12,cursor:"pointer"}}>목록</button>
+        </div>
+
+        <div style={{padding:16,maxWidth:640,margin:"0 auto"}}>
+          {/* 오늘의 소믈리에 */}
+          {winner&&(
+            <div style={{...CS,textAlign:"center",background:"linear-gradient(135deg,#FEF3C7,#FBF4E4)",border:"2px solid #D97706",marginBottom:16}}>
+              <div style={{fontSize:32,marginBottom:4}}>👑</div>
+              <div style={{fontSize:18,fontWeight:800,color:"#92400E"}}>오늘의 소믈리에</div>
+              <div style={{fontSize:24,fontWeight:700,color:"#D97706",marginTop:4}}>{winner}</div>
+              <div style={{fontSize:12,color:"#92400E",marginTop:4}}>
+                {partyScores[winner].hits}/{partyScores[winner].total} 적중
+              </div>
+            </div>
+          )}
+
+          {/* 참가자별 카드 */}
+          {ranked.map(([p,ps])=>(
+            <div key={p} style={{...CS,marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                {p===winner&&<span style={{fontSize:16}}>👑</span>}
+                <span style={{fontSize:16,fontWeight:700,color:TH.T1}}>{p}</span>
+                <span style={{marginLeft:"auto",fontSize:20}}>{funMsg(ps.hits,ps.total)}</span>
+              </div>
+              {ps.wines.map(({wno,ans,fields})=>(
+                <div key={wno} style={{marginBottom:10,padding:"10px",background:TH.BG,borderRadius:10}}>
+                  <div style={{fontSize:12,fontWeight:700,color:TH.T2,marginBottom:6}}>
+                    #{wno} {ans.nameKR||""}
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {fields.map(({label,lvl})=>lvl.level!=="none"&&(
+                      <div key={label} style={{
+                        padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:600,
+                        background:lvl.level==="exact"?"#D1FAE5":lvl.level==="close"?"#FEF3C7":"#FEE2E2",
+                        color:lvl.level==="exact"?"#065F46":lvl.level==="close"?"#92400E":"#991B1B"
+                      }}>
+                        {emojiScore(lvl.level)} {label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+
+          {/* 와인별 정답 공개 */}
+          {cur.revealed&&(
+            <div style={CS}>
+              <div style={{fontSize:13,fontWeight:700,color:TH.T1,marginBottom:10}}>🍾 오늘의 와인</div>
+              {Array.from({length:cur.wineCount}).map((_,i)=>{
+                const wno=i+1, ans=cur.answers?.[wno]||{};
+                return (
+                  <div key={wno} style={{display:"flex",gap:10,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${TH.BD}`}}>
+                    <span style={{fontSize:22,flexShrink:0}}>🍷</span>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:TH.T1}}>#{wno} {ans.nameKR||"?"}</div>
+                      <div style={{fontSize:11,color:TH.T2}}>{[ans.country,ans.region,ans.grapeVariety,ans.vintage].filter(Boolean).join(" · ")}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <ToastContainer toasts={toasts}/>
+      </div>
+    );
+  }
+
   // ════ SUMMARY VIEW ════
   if(view==="summary"&&cur) {
     // Compute average scores per wine
@@ -1481,7 +1861,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     const ranked=Object.entries(wineScores).filter(([,v])=>v!==null).sort((a,b)=>b[1]-a[1]);
 
     return (
-      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
         <div style={{background:RED,color:"#fff",padding:"16px 18px",display:"flex",alignItems:"center",gap:12}}>
           <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
           {editingNameId===cur.id ? (
@@ -1505,8 +1885,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           {/* Session Photos */}
           <div style={CS}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#555"}}>📷 세션 사진</div>
-              <span style={{fontSize:11,color:"#aaa"}}>{(cur.photos||[]).length}장</span>
+              <div style={{fontSize:13,fontWeight:700,color:TH.T2}}>📷 세션 사진</div>
+              <span style={{fontSize:11,color:TH.T3}}>{(cur.photos||[]).length}장</span>
             </div>
             <SessionPhotos
               photos={cur.photos||[]}
@@ -1514,7 +1894,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               onDelete={deleteSessionPhoto}
             />
             {(cur.photos||[]).length===0&&(
-              <div style={{fontSize:12,color:"#bbb",textAlign:"center",padding:"8px 0"}}>
+              <div style={{fontSize:12,color:TH.T3,textAlign:"center",padding:"8px 0"}}>
                 와인 사진, 모임 사진을 추가해보세요
               </div>
             )}
@@ -1522,15 +1902,15 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
 
           {ranked.length>0&&(
             <div style={CS}>
-              <div style={{fontSize:13,fontWeight:700,color:"#555",marginBottom:10}}>🏆 와인 순위 (평균 점수)</div>
+              <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:10}}>🏆 와인 순위 (평균 점수)</div>
               {ranked.map(([wno,sc],i)=>{
                 const ans=cur.answers[wno]||{};
                 return (
-                  <div key={wno} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #f7f4f0"}}>
+                  <div key={wno} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${TH.BD}`}}>
                     <span style={{fontSize:15,fontWeight:700,color:i===0?GOLD:"#aaa",width:28}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:600}}>#{wno} {ans.nameKR||ans.nameEN||"(미입력)"}</div>
-                      {ans.region&&<div style={{fontSize:11,color:"#aaa"}}>{ans.region}{ans.vintage?` · ${ans.vintage}`:""}</div>}
+                      {ans.region&&<div style={{fontSize:11,color:TH.T3}}>{ans.region}{ans.vintage?` · ${ans.vintage}`:""}</div>}
                     </div>
                     <div style={{fontSize:17,fontWeight:700,color:GOLD}}>{sc}</div>
                   </div>
@@ -1542,39 +1922,39 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           {/* Rubric disclosure toggle */}
           <div style={{marginBottom:10,textAlign:"right"}}>
             <button onClick={()=>setShowRubric(v=>!v)}
-              style={{background:"none",border:"1px solid #ddd",borderRadius:8,padding:"5px 12px",fontSize:11,color:"#888",cursor:"pointer"}}>
+              style={{background:"none",border:`1px solid ${TH.BD}`,borderRadius:8,padding:"5px 12px",fontSize:11,color:TH.T2,cursor:"pointer"}}>
               📋 채점 기준 {showRubric?"숨기기":"보기"}
             </button>
           </div>
           {showRubric&&(
-            <div style={{...CS,background:"#FAFAFA",fontSize:11,lineHeight:1.6,marginBottom:10}}>
-              <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:"#333"}}>📋 이 세션 채점 기준</div>
+            <div style={{...CS,background:TH.CARD2,fontSize:11,lineHeight:1.6,marginBottom:10}}>
+              <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:TH.T1}}>📋 이 세션 채점 기준</div>
               {/* Quantitative weights */}
               <div style={{marginBottom:8}}>
-                <div style={{fontWeight:600,color:"#555",marginBottom:3}}>🔢 정량 채점 (자동 · {Math.round((1-(cur.rubric?.qualRatio||0))*100)}%)</div>
-                <div style={{color:"#777"}}>
+                <div style={{fontWeight:600,color:TH.T2,marginBottom:3}}>🔢 정량 채점 (자동 · {Math.round((1-(cur.rubric?.qualRatio||0))*100)}%)</div>
+                <div style={{color:TH.T2}}>
                   {Object.entries(cur.rubric?.weights||{}).filter(([,w])=>w>0).map(([k,w])=>`${({country:"국가",region:"지역",village:"마을",classification:"등급",grape:"품종",vintage:"빈티지"})[k]}×${w}`).join(" · ")}
                 </div>
-                <div style={{color:"#999",marginTop:2}}>빈티지 ±{cur.rubric?.vintageTol??2}년 허용 · 근접 점수 {Math.round((cur.rubric?.closeRatio??0.5)*100)}%</div>
+                <div style={{color:TH.T3,marginTop:2}}>빈티지 ±{cur.rubric?.vintageTol??2}년 허용 · 근접 점수 {Math.round((cur.rubric?.closeRatio??0.5)*100)}%</div>
               </div>
               {/* Village AI */}
               <div style={{marginBottom:8}}>
-                <div style={{fontWeight:600,color:"#555",marginBottom:3}}>🤖 마을 AI 의미 판정</div>
-                <div style={{color:"#777"}}>동일 서브리전 내 인접 마을만 근접 처리 · 다른 서브리전은 오답</div>
-                <div style={{color:"#999"}}>예) 코트드뉘 내 인접 마을 → 근접 / 코트드뉘↔코트드본 → 오답</div>
+                <div style={{fontWeight:600,color:TH.T2,marginBottom:3}}>🤖 마을 AI 의미 판정</div>
+                <div style={{color:TH.T2}}>동일 서브리전 내 인접 마을만 근접 처리 · 다른 서브리전은 오답</div>
+                <div style={{color:TH.T3}}>예) 코트드뉘 내 인접 마을 → 근접 / 코트드뉘↔코트드본 → 오답</div>
               </div>
               {/* Qualitative */}
               {(cur.rubric?.qualRatio||0)>0&&(
                 <div>
-                  <div style={{fontWeight:600,color:"#555",marginBottom:3}}>🤖 AI 정성 평가 ({Math.round((cur.rubric?.qualRatio||0)*100)}%)</div>
+                  <div style={{fontWeight:600,color:TH.T2,marginBottom:3}}>🤖 AI 정성 평가 ({Math.round((cur.rubric?.qualRatio||0)*100)}%)</div>
                   {[["향 묘사 해상도","8점","1차·2차·3차 향 세밀도, 정답 와인 핵심 마커 포착 여부"],
                     ["구조감·텍스처","12점","산도·타닌·바디·피니시를 텍스처 질감까지 묘사 (가장 중요)"],
                     ["논리 정합성","10점","묘사→결론 연결 논리성. 타당한 오답은 만점 가능"]
                   ].map(([t,p,d])=>(
                     <div key={t} style={{marginBottom:4}}>
-                      <span style={{fontWeight:600,color:"#555"}}>{t}</span>
-                      <span style={{color:"#999",marginLeft:4}}>{p}</span>
-                      <div style={{color:"#999",paddingLeft:8}}>→ {d}</div>
+                      <span style={{fontWeight:600,color:TH.T2}}>{t}</span>
+                      <span style={{color:TH.T3,marginLeft:4}}>{p}</span>
+                      <div style={{color:TH.T3,paddingLeft:8}}>→ {d}</div>
                     </div>
                   ))}
                 </div>
@@ -1585,37 +1965,37 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           {/* ── 채점 기준 공개 ── */}
           <div style={{marginBottom:10,textAlign:"right"}}>
             <button onClick={()=>setShowRubric(v=>!v)}
-              style={{background:"none",border:"1px solid #ddd",borderRadius:8,padding:"5px 12px",fontSize:11,color:"#888",cursor:"pointer"}}>
+              style={{background:"none",border:`1px solid ${TH.BD}`,borderRadius:8,padding:"5px 12px",fontSize:11,color:TH.T2,cursor:"pointer"}}>
               📋 채점 기준 {showRubric?"숨기기":"보기"}
             </button>
           </div>
           {showRubric&&(
-            <div style={{...CS,background:"#FAFAFA",fontSize:11,lineHeight:1.6,marginBottom:10}}>
-              <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:"#333"}}>📋 이 세션 채점 기준</div>
+            <div style={{...CS,background:TH.CARD2,fontSize:11,lineHeight:1.6,marginBottom:10}}>
+              <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:TH.T1}}>📋 이 세션 채점 기준</div>
               <div style={{marginBottom:8}}>
-                <div style={{fontWeight:600,color:"#555",marginBottom:2}}>🔢 정량 채점 · {Math.round((1-(cur.rubric?.qualRatio||0))*100)}%</div>
-                <div style={{color:"#777"}}>
+                <div style={{fontWeight:600,color:TH.T2,marginBottom:2}}>🔢 정량 채점 · {Math.round((1-(cur.rubric?.qualRatio||0))*100)}%</div>
+                <div style={{color:TH.T2}}>
                   {Object.entries(cur.rubric?.weights||DEFAULT_RUBRIC.weights).filter(([,w])=>w>0)
                     .map(([k,w])=>`${({country:"국가",region:"지역",village:"마을",classification:"등급",grape:"품종",vintage:"빈티지"})[k]}×${w}`).join(" · ")}
                 </div>
-                <div style={{color:"#999",marginTop:1}}>빈티지 ±{cur.rubric?.vintageTol??2}년 근접 허용 · 근접 점수 {Math.round((cur.rubric?.closeRatio??0.5)*100)}%</div>
+                <div style={{color:TH.T3,marginTop:1}}>빈티지 ±{cur.rubric?.vintageTol??2}년 근접 허용 · 근접 점수 {Math.round((cur.rubric?.closeRatio??0.5)*100)}%</div>
               </div>
               <div style={{marginBottom:8}}>
-                <div style={{fontWeight:600,color:"#555",marginBottom:2}}>🤖 마을 AI 의미 판정 (AI 실행 시)</div>
-                <div style={{color:"#777"}}>동일 서브리전 내 인접 마을만 근접 처리</div>
-                <div style={{color:"#999"}}>예) 코트드뉘 인접 마을 → 근접 / 코트드뉘↔코트드본 → 오답</div>
+                <div style={{fontWeight:600,color:TH.T2,marginBottom:2}}>🤖 마을 AI 의미 판정 (AI 실행 시)</div>
+                <div style={{color:TH.T2}}>동일 서브리전 내 인접 마을만 근접 처리</div>
+                <div style={{color:TH.T3}}>예) 코트드뉘 인접 마을 → 근접 / 코트드뉘↔코트드본 → 오답</div>
               </div>
               {(cur.rubric?.qualRatio||0)>0&&(
                 <div>
-                  <div style={{fontWeight:600,color:"#555",marginBottom:4}}>🤖 AI 정성 평가 · {Math.round((cur.rubric?.qualRatio||0)*100)}%</div>
+                  <div style={{fontWeight:600,color:TH.T2,marginBottom:4}}>🤖 AI 정성 평가 · {Math.round((cur.rubric?.qualRatio||0)*100)}%</div>
                   {[["향 묘사 해상도","8점","1차·2차·3차 향 세밀도, 정답 와인 핵심 마커 포착"],
                     ["구조감·텍스처","12점","산도·타닌·바디·피니시 텍스처까지 묘사 (가장 중요)"],
                     ["논리 정합성","10점","묘사→결론 논리. 타당한 오답은 만점 가능"]
                   ].map(([t,pt,d])=>(
                     <div key={t} style={{marginBottom:4}}>
-                      <span style={{fontWeight:600,color:"#555"}}>{t}</span>
+                      <span style={{fontWeight:600,color:TH.T2}}>{t}</span>
                       <span style={{color:"#2E7D32",marginLeft:4,fontWeight:600}}>{pt}</span>
-                      <div style={{color:"#999",paddingLeft:4}}>→ {d}</div>
+                      <div style={{color:TH.T3,paddingLeft:4}}>→ {d}</div>
                     </div>
                   ))}
                 </div>
@@ -1626,8 +2006,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           <div style={{...CS,background:"linear-gradient(135deg,#FBF4E4,#fff5f5)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
               <div>
-                <div style={{fontSize:12,fontWeight:600,color:"#555"}}>채점 방식</div>
-                <div style={{fontSize:11,color:"#aaa",marginTop:2}}>
+                <div style={{fontSize:12,fontWeight:600,color:TH.T2}}>채점 방식</div>
+                <div style={{fontSize:11,color:TH.T3,marginTop:2}}>
                   {cur.rubric?.qualRatio>0
                     ? `정량 ${Math.round((1-(cur.rubric?.qualRatio||0))*100)}% + AI(마을 의미판정+정성) ${Math.round((cur.rubric?.qualRatio||0)*100)}%`
                     : "정량 100% (AI 정성 평가 미사용)"}
@@ -1644,8 +2024,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 </button>
               )}
             </div>
-            {qualLoading&&<div style={{fontSize:11,color:"#aaa",marginTop:8}}>참가자별 추론을 Gemini가 분석 중입니다... 잠시 기다려주세요.</div>}
-            {!cur.rubric?.qualRatio&&<div style={{fontSize:11,color:"#aaa",marginTop:4}}>± 버튼으로 출제자가 점수 보정 가능 (예: 마이너 산지 근접 가점)</div>}
+            {qualLoading&&<div style={{fontSize:11,color:TH.T3,marginTop:8}}>참가자별 추론을 Gemini가 분석 중입니다... 잠시 기다려주세요.</div>}
+            {!cur.rubric?.qualRatio&&<div style={{fontSize:11,color:TH.T3,marginTop:4}}>± 버튼으로 출제자가 점수 보정 가능 (예: 마이너 산지 근접 가점)</div>}
           </div>
           {/* Per-wine comparison with scoring */}
           {Array.from({length:cur.wineCount}).map((_,i)=>{
@@ -1678,13 +2058,13 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                         <span style={{fontSize:12,fontWeight:700,color:"#7a5c10"}}>🍾 {p} <span style={{fontWeight:400,fontSize:11}}>(가져온 사람)</span></span>
                         {g.score&&<span style={{fontSize:13,fontWeight:700,color:GOLD}}>{g.score}점</span>}
                       </div>
-                      {g.reason&&<div style={{fontSize:11,color:"#888",fontStyle:"italic",lineHeight:1.4,marginTop:3}}>💬 {g.reason}</div>}
+                      {g.reason&&<div style={{fontSize:11,color:TH.T2,fontStyle:"italic",lineHeight:1.4,marginTop:3}}>💬 {g.reason}</div>}
                     </div>
                   );
                   if(skip) return (
                     <div key={p} style={{borderLeft:"3px solid #eee",paddingLeft:10,marginBottom:10}}>
-                      <span style={{fontSize:12,fontWeight:700,color:"#ccc"}}>{p}</span>
-                      <span style={{fontSize:11,color:"#ccc",marginLeft:6}}>미입력</span>
+                      <span style={{fontSize:12,fontWeight:700,color:TH.T3}}>{p}</span>
+                      <span style={{fontSize:11,color:TH.T3,marginLeft:6}}>미입력</span>
                     </div>
                   );
                   const isWinner=score.pct===bestPct&&bestPct>0;
@@ -1696,7 +2076,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                   return (
                     <div key={p} style={{borderLeft:`3px solid ${isWinner?GOLD:(p===cur.participants[0]?RED:"#2E7D32")}`,paddingLeft:10,marginBottom:12,background:isWinner?"#FFFBF0":"transparent",borderRadius:isWinner?"0 6px 6px 0":0,padding:isWinner?"6px 10px":"0 0 0 10px"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                        <span style={{fontSize:12,fontWeight:700,color:"#333"}}>{isWinner?"👑 ":""}{p}{g.score?` · 시음 ${g.score}점`:""}</span>
+                        <span style={{fontSize:12,fontWeight:700,color:TH.T1}}>{isWinner?"👑 ":""}{p}{g.score?` · 시음 ${g.score}점`:""}</span>
                         {score&&(()=>{
                           const adj=g.adjust||0;
                           const quantPct=Math.max(0,Math.min(100,score.pct+adj));
@@ -1707,17 +2087,17 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                             : quantPct;
                           return (
                             <div style={{display:"flex",alignItems:"center",gap:6}}>
-                              <button onClick={()=>adjustScore(p,wno,-5)} style={{width:22,height:22,borderRadius:"50%",border:"1px solid #ddd",background:"#fff",color:"#999",fontSize:13,cursor:"pointer",lineHeight:1,padding:0}}>−</button>
+                              <button onClick={()=>adjustScore(p,wno,-5)} style={{width:22,height:22,borderRadius:"50%",border:`1px solid ${TH.BD}`,background:"#fff",color:TH.T3,fontSize:13,cursor:"pointer",lineHeight:1,padding:0}}>−</button>
                               <div style={{textAlign:"center",minWidth:60}}>
                                 <div style={{fontSize:14,fontWeight:700,color:finalPct>=60?"#2E7D32":finalPct>=30?"#92400E":"#991B1B"}}>{finalPct}%</div>
                                 {hasQual&&(
-                                  <div style={{fontSize:9,color:"#aaa",lineHeight:1.4}}>
+                                  <div style={{fontSize:9,color:TH.T3,lineHeight:1.4}}>
                                     정량{quantPct}·AI{g.qualScore}
                                   </div>
                                 )}
-                                {!hasQual&&adj!==0&&<div style={{fontSize:9,color:"#aaa"}}>{adj>0?"+":""}{adj} 보정</div>}
+                                {!hasQual&&adj!==0&&<div style={{fontSize:9,color:TH.T3}}>{adj>0?"+":""}{adj} 보정</div>}
                               </div>
-                              <button onClick={()=>adjustScore(p,wno,5)} style={{width:22,height:22,borderRadius:"50%",border:"1px solid #ddd",background:"#fff",color:"#999",fontSize:13,cursor:"pointer",lineHeight:1,padding:0}}>+</button>
+                              <button onClick={()=>adjustScore(p,wno,5)} style={{width:22,height:22,borderRadius:"50%",border:`1px solid ${TH.BD}`,background:"#fff",color:TH.T3,fontSize:13,cursor:"pointer",lineHeight:1,padding:0}}>+</button>
                             </div>
                           );
                         })()}
@@ -1730,12 +2110,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                           <div style={{display:"inline-flex",flexDirection:"column",gap:2}}>
                             <div style={{display:"inline-flex",alignItems:"center",gap:2}}>
                               <Tag lvl={score.village} label={g.village}/>
-                              {g.villageAILevel&&<span style={{fontSize:9,color:"#888",fontStyle:"italic"}}>🤖{g.villageNote||"AI 판정"}</span>}
+                              {g.villageAILevel&&<span style={{fontSize:9,color:TH.T2,fontStyle:"italic"}}>🤖{g.villageNote||"AI 판정"}</span>}
                             </div>
                             {/* Village AI override buttons */}
                             {g.villageAILevel&&(
                               <div style={{display:"flex",gap:3,marginTop:1}}>
-                                <span style={{fontSize:9,color:"#bbb"}}>보정:</span>
+                                <span style={{fontSize:9,color:TH.T3}}>보정:</span>
                                 {[["exact","정확","#2E7D32"],["close","근접",GOLD],["miss","오답","#991B1B"]].map(([lvl,lbl,col])=>(
                                   <button key={lvl} onClick={()=>overrideVillageAI(p,wno,lvl)}
                                     style={{padding:"1px 6px",border:`1px solid ${g.villageAILevel===lvl?col:"#ddd"}`,borderRadius:8,fontSize:9,fontWeight:g.villageAILevel===lvl?700:400,background:g.villageAILevel===lvl?col+"22":"#fff",color:g.villageAILevel===lvl?col:"#aaa",cursor:"pointer"}}>{lbl}</button>
@@ -1748,7 +2128,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                         {g.grape&&<Tag lvl={score.grape} label={g.grape}/>}
                         {g.vintage&&<Tag lvl={score.vintage} label={g.vintage}/>}
                       </div>
-                      {g.reason&&<div style={{fontSize:11,color:"#888",fontStyle:"italic",lineHeight:1.4,marginTop:3}}>💭 {g.reason}</div>}
+                      {g.reason&&<div style={{fontSize:11,color:TH.T2,fontStyle:"italic",lineHeight:1.4,marginTop:3}}>💭 {g.reason}</div>}
                       {g.qualScore!==undefined&&(
                         <div style={{marginTop:6,background:"#F0FBF0",borderRadius:6,padding:"8px 10px"}}>
                           {/* Per-criterion interactive breakdown */}
@@ -1762,12 +2142,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                                 <span style={{fontSize:11,fontWeight:700,color:col,minWidth:32,textAlign:"right"}}>{sc||0}/{mx}</span>
                                 {/* ±1 adjust buttons */}
                                 <button onClick={()=>adjustQualCriterion(p,wno,key,-1)}
-                                  style={{width:20,height:20,borderRadius:"50%",border:"1px solid #ddd",background:"#fff",color:"#999",fontSize:12,cursor:"pointer",lineHeight:1,padding:0,flexShrink:0}}>−</button>
+                                  style={{width:20,height:20,borderRadius:"50%",border:`1px solid ${TH.BD}`,background:"#fff",color:TH.T3,fontSize:12,cursor:"pointer",lineHeight:1,padding:0,flexShrink:0}}>−</button>
                                 <button onClick={()=>adjustQualCriterion(p,wno,key,1)}
-                                  style={{width:20,height:20,borderRadius:"50%",border:"1px solid #ddd",background:"#fff",color:"#999",fontSize:12,cursor:"pointer",lineHeight:1,padding:0,flexShrink:0}}>+</button>
+                                  style={{width:20,height:20,borderRadius:"50%",border:`1px solid ${TH.BD}`,background:"#fff",color:TH.T3,fontSize:12,cursor:"pointer",lineHeight:1,padding:0,flexShrink:0}}>+</button>
                               </div>
                             ))}
-                            <div style={{fontSize:10,color:"#888",textAlign:"right",marginTop:2}}>AI 종합 {g.qualScore}점 / 100</div>
+                            <div style={{fontSize:10,color:TH.T2,textAlign:"right",marginTop:2}}>AI 종합 {g.qualScore}점 / 100</div>
                           </div>
                           {g.qualFeedback&&<div style={{fontSize:11,color:"#2E7D32",lineHeight:1.5}}>🤖 {g.qualFeedback}</div>}
                         </div>
@@ -1808,11 +2188,11 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                   <div key={b.p} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0"}}>
                     <span style={{fontSize:15,width:28}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span>
                     <span style={{flex:1,fontSize:13,fontWeight:600}}>{b.p}</span>
-                    <span style={{fontSize:11,color:"#aaa"}}>{b.n}종</span>
+                    <span style={{fontSize:11,color:TH.T3}}>{b.n}종</span>
                     <span style={{fontSize:16,fontWeight:700,color:GOLD}}>{b.avg}%</span>
                   </div>
                 ))}
-                <div style={{fontSize:10,color:"#bbb",marginTop:8}}>
+                <div style={{fontSize:10,color:TH.T3,marginTop:8}}>
                   채점 기준: {Object.entries(cur.rubric?.weights||{}).filter(([,w])=>w>0).map(([k,w])=>`${({country:"국가",region:"지역",village:"마을",classification:"등급",grape:"품종",vintage:"빈티지"})[k]}×${w}`).join(" · ")} · 근접 {Math.round((cur.rubric?.closeRatio??0.5)*100)}%
                 </div>
               </div>
@@ -1865,12 +2245,12 @@ function App() {
   async function runQualEval(active, onSaveSessions) {
     // ── 사전 검사 ──────────────────────────────────────────────
     if (!geminiKey) {
-      alert("⚙️ 설정(상단 톱니바퀴)에서 Gemini API 키를 먼저 입력해주세요.\n무료 키: aistudio.google.com/apikey");
+      toast("⚙️ Gemini API 키를 먼저 설정해주세요", "error"); return null;
       return null;
     }
     const qr = active?.rubric?.qualRatio || 0;
     if (qr === 0) {
-      alert("세션 설정에서 AI 정성 평가 비율을 20% 이상으로 설정하고 세션을 다시 만들어주세요.");
+      toast("세션 설정에서 AI 정성 평가 비율을 설정해주세요", "warn"); return null;
       return null;
     }
     // 평가 대상이 있는지 확인 (이유 텍스트 작성 여부)
@@ -1887,7 +2267,7 @@ function App() {
       }
     }
     if (evalTargets === 0) {
-      alert("평가할 내용이 없습니다.\n참가자가 추론 이유를 작성했거나, 마을 항목이 입력된 세션에서 실행해주세요.");
+      toast("평가할 내용이 없습니다 — 참가자 추론 또는 마을 항목 입력 필요", "warn"); return null;
       return null;
     }
     // ── 실행 ──────────────────────────────────────────────────
@@ -1905,6 +2285,8 @@ function App() {
           const hasReason  = g.reason?.trim();
           if (!hasVillage && !hasReason) continue;
           const result = await callGeminiForQual(geminiKey, g.reason||"", ans, g);
+          // 429 방지: 호출 간 3초 간격 (무료 분당 한도 대응)
+          await new Promise(r=>setTimeout(r, 3000));
           if (result) {
             const patch = {...(updated.guesses[p]?.[wno]||{})};
             if (result.villageAILevel) {
@@ -1926,7 +2308,7 @@ function App() {
       onSaveSessions([updated, ...sessions.filter(s => s.id !== updated.id)]);
       return updated;
     } catch(err) {
-      alert("AI 채점 중 오류가 발생했습니다: " + err.message);
+      toast("AI 채점 오류: " + err.message, "error", 5000);
       return null;
     } finally {
       setQualLoading(false); // 항상 로딩 해제
@@ -1951,7 +2333,7 @@ function App() {
 
   if (!ready) {
     return (
-      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#bbb"}}>
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:TH.T3}}>
         🍷 불러오는 중...
       </div>
     );
