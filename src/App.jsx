@@ -1524,8 +1524,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           <span style={{fontSize:17,fontWeight:700}}>세션 설정</span>
         </div>
         {cur?.accessCode&&(
-          <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
-            <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
+          <div style={{background:"rgba(0,0,0,.45)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"rgba(255,255,255,.85)",fontSize:11}}>초대 코드</span>
             <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
               const url=`${window.location.origin}?join=${cur?.accessCode}`;
@@ -1712,8 +1712,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           <div style={{fontSize:12,opacity:.85,paddingLeft:32}}>참가자에게 보이지 않습니다 · 와인별 "가져온 사람"도 지정하세요</div>
         </div>
         {cur?.accessCode&&(
-          <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
-            <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
+          <div style={{background:"rgba(0,0,0,.45)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"rgba(255,255,255,.85)",fontSize:11}}>초대 코드</span>
             <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
               const url=`${window.location.origin}?join=${cur?.accessCode}`;
@@ -1790,8 +1790,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             <span style={{fontSize:16,fontWeight:700}}>{cur.name}</span>
           </div>
 {cur?.accessCode&&(
-          <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
-            <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
+          <div style={{background:"rgba(0,0,0,.45)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"rgba(255,255,255,.85)",fontSize:11}}>초대 코드</span>
             <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
               const url=`${window.location.origin}?join=${cur?.accessCode}`;
@@ -2047,8 +2047,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:8,padding:"5px 10px",fontSize:12,cursor:"pointer"}}>목록</button>
         </div>
         {cur?.accessCode&&(
-          <div style={{background:"rgba(0,0,0,.25)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
-            <span style={{color:"rgba(255,255,255,.7)",fontSize:11}}>초대 코드</span>
+          <div style={{background:"rgba(0,0,0,.45)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"rgba(255,255,255,.85)",fontSize:11}}>초대 코드</span>
             <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
             <button onClick={()=>{
               const url=`${window.location.origin}?join=${cur?.accessCode}`;
@@ -2255,7 +2255,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
               <div>
                 <div style={{fontSize:12,fontWeight:600,color:TH.T2}}>채점 방식</div>
-                <div style={{fontSize:11,color:TH.T3,marginTop:2}}>
+                <div style={{fontSize:11,color:TH.T2,marginTop:2}}>
                   {cur.rubric?.qualRatio>0
                     ? `정량 ${Math.round((1-(cur.rubric?.qualRatio||0))*100)}% + AI(마을 의미판정+정성) ${Math.round((cur.rubric?.qualRatio||0)*100)}%`
                     : "정량 100% (AI 정성 평가 미사용)"}
@@ -2268,7 +2268,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                     .catch(err=>{ console.error("AI 채점 오류:", err); alert("오류: "+err.message); });
                 }} disabled={qualLoading}
                   style={{background:qualLoading?"#ccc":RED,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:600,cursor:qualLoading?"default":"pointer"}}>
-                  {qualLoading?"🤖 평가 중...":"🤖 AI 채점 실행 (마을 의미판정 + 정성 평가)"}
+                  {qualLoading?"🤖 평가 중...":"🤖 AI 채점 실행"}
                 </button>
               )}
             </div>
