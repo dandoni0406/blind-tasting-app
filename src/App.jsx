@@ -403,6 +403,60 @@ function SessionPhotos({ photos=[], onAdd, onDelete, readOnly=false }) {
   );
 }
 
+// ── 바텀시트 선택기 ───────────────────────────────────────────────
+function BottomSheet({ config, search, onSearch, onSelect, onClose }) {
+  if (!config) return null;
+  const { label, options, popular } = config;
+  const filtered = search
+    ? options.filter(o => o.includes(search))
+    : options;
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      {/* 반투명 배경 */}
+      <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)"}} onClick={onClose}/>
+      {/* 시트 패널 */}
+      <div style={{position:"relative",background:"#fff",borderRadius:"20px 20px 0 0",maxHeight:"75vh",display:"flex",flexDirection:"column",paddingTop:12}}>
+        {/* 핸들 */}
+        <div style={{width:40,height:4,borderRadius:2,background:"#ddd",margin:"0 auto 12px"}}/>
+        <div style={{padding:"0 16px 8px",fontWeight:700,fontSize:14,color:"#333"}}>{label}</div>
+        {/* 검색 */}
+        <div style={{padding:"0 16px 10px"}}>
+          <input autoFocus value={search} onChange={e=>onSearch(e.target.value)}
+            placeholder="검색..."
+            style={{width:"100%",border:"1px solid #eee",borderRadius:10,padding:"10px 14px",fontSize:14,outline:"none",boxSizing:"border-box",background:"#f7f4f0"}}/>
+        </div>
+        {/* 인기 항목 칩 */}
+        {!search && popular?.length>0 && (
+          <div style={{padding:"0 16px 10px"}}>
+            <div style={{fontSize:10,color:"#aaa",fontWeight:600,marginBottom:6}}>자주 선택</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {popular.map(p=>(
+                <button key={p} onClick={()=>onSelect(p)}
+                  style={{padding:"8px 14px",border:"1px solid #8B2635",borderRadius:20,fontSize:13,fontWeight:600,color:"#8B2635",background:"#FDF1F2",cursor:"pointer"}}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* 전체 목록 */}
+        <div style={{overflowY:"auto",padding:"0 16px 24px",flex:1}}>
+          {filtered.length===0
+            ? <div style={{textAlign:"center",color:"#aaa",padding:24}}>결과 없음</div>
+            : filtered.map(opt=>(
+                <button key={opt} onClick={()=>onSelect(opt)}
+                  style={{display:"block",width:"100%",textAlign:"left",padding:"13px 4px",border:"none",borderBottom:"1px solid #f7f4f0",background:"none",fontSize:14,color:"#333",cursor:"pointer"}}>
+                  {opt}
+                </button>
+              ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Blind Tasting Session (모임용) ────────────────────────────────
 function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, onBack, tasters, geminiKey, setGeminiKey, runQualEval, qualLoading }) {
   const [view, setView] = useState("list");
@@ -412,7 +466,9 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [showSettings, setShowSettings] = useState(false);
   const [showGroupMgr, setShowGroupMgr] = useState(false);
   const [showRubric, setShowRubric] = useState(false);
-  const [scanningWno, setScanningWno] = useState(null); // 스캔 중인 와인 번호    // group manager panel
+  const [scanningWno, setScanningWno] = useState(null);
+  const [bottomSheet, setBottomSheet] = useState(null); // {field, options, popular}
+  const [bsSearch, setBsSearch] = useState(""); // 스캔 중인 와인 번호    // group manager panel
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [editingGroupVal, setEditingGroupVal] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
@@ -684,35 +740,35 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   );
   // Region: datalist filtered by country
   const GRegion=()=>{
-    const c=gval("country");
-    const regions=WINE_ORIGINS[c]?Object.keys(WINE_ORIGINS[c]):[];
+    const co=gval("country");
+    const regions=WINE_ORIGINS[co]?Object.keys(WINE_ORIGINS[co]):[];
+    const popular=co?Object.keys(WINE_ORIGINS[co]||{}).slice(0,6):["부르고뉴","보르도","피에몬테","토스카나","나파 밸리","말버러"];
+    const val=gval("region");
     return (
       <div style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
-        <div style={{position:"relative"}}>
-          <input list="dl-regions" value={gval("region")} onChange={e=>{updateGuess("region",e.target.value);updateGuess("village","");}}
-            placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={{...IST,paddingRight:28}}/>
-          {regions.length>0&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>}
-        </div>
-        <datalist id="dl-regions">{regions.map(r=><option key={r} value={r}/>)}</datalist>
+        <button onClick={()=>{setBsSearch("");setBottomSheet({label:"지역 선택",options:regions.length?regions:Object.values(WINE_ORIGINS).flatMap(r=>Object.keys(r)),popular,field:"region"});}}
+          style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"9px 12px",fontSize:13,background:TH.INP,color:val?TH.T1:"#aaa",textAlign:"left",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>{val||"탭하여 선택"}</span>
+          <span style={{fontSize:12,color:"#aaa"}}>▾</span>
+        </button>
       </div>
     );
   };
   // Village: datalist filtered by region (fallback all villages)
   const GVillage=()=>{
-    const c=gval("country"), r=gval("region");
-    let villages=[];
-    if(WINE_ORIGINS[c]?.[r]) villages=WINE_ORIGINS[c][r];
-    else { Object.values(WINE_ORIGINS).forEach(rg=>Object.values(rg).forEach(vs=>villages.push(...vs))); }
+    const co=gval("country"), r=gval("region");
+    let villages=WINE_ORIGINS[co]?.[r]||[];
+    if(!villages.length) Object.values(WINE_ORIGINS).forEach(rg=>Object.values(rg).forEach(vs=>villages.push(...vs)));
+    const val=gval("village");
     return (
       <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>세부 마을 (선택)</div>
-        <div style={{position:"relative"}}>
-          <input list="dl-villages" value={gval("village")} onChange={e=>updateGuess("village",e.target.value)}
-            placeholder="입력하면 자동완성" style={{...IST,paddingRight:28}}/>
-          <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>
-        </div>
-        <datalist id="dl-villages">{[...new Set(villages)].map(v=><option key={v} value={v}/>)}</datalist>
+        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>세부 마을 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
+        <button onClick={()=>{setBsSearch("");setBottomSheet({label:"마을/아펠라시옹 선택",options:[...new Set(villages)],popular:villages.slice(0,8),field:"village"});}}
+          style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"9px 12px",fontSize:13,background:TH.INP,color:val?TH.T1:"#aaa",textAlign:"left",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>{val||"탭하여 선택 (선택사항)"}</span>
+          <span style={{fontSize:12,color:"#aaa"}}>▾</span>
+        </button>
       </div>
     );
   };
@@ -2009,6 +2065,14 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             )}
           </div>
         </div>
+        {/* 바텀시트 */}
+        <BottomSheet config={bottomSheet} search={bsSearch} onSearch={setBsSearch}
+          onSelect={v=>{
+            if(bottomSheet?.field==="region"){updateGuess("region",v);updateGuess("village","");}
+            else if(bottomSheet?.field==="village"){updateGuess("village",v);}
+            setBottomSheet(null);setBsSearch("");
+          }}
+          onClose={()=>{setBottomSheet(null);setBsSearch("");}}/>
       </div>
     );
   }
