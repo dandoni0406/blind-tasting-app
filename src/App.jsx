@@ -682,10 +682,13 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     sessionDB.save(s).catch(e=>console.warn("세션 저장 실패:", e));
     if(unsubRef.current) unsubRef.current();
     unsubRef.current = sessionDB.subscribe(s.id, (latest)=>{
+      try { sessionStorage.setItem("bt-active", JSON.stringify(latest)); } catch(e) {}
       setActive(latest);
     });
-    setShowCodeShare(true); // 초대 코드 먼저 보여주기
-    setView("list"); // 리스트 뷰로 이동 (오버레이가 거기 있음)
+    // sessionStorage에 백업 (모바일 재렌더링 시 복원용)
+    try { sessionStorage.setItem("bt-active", JSON.stringify(s)); } catch(e) {}
+    setShowCodeShare(true);
+    setView("list");
   }
   function lockAnswersAndStart() {
     setActive(prev=>({...prev, answersLocked:true}));
@@ -795,7 +798,15 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     setEditingNameId(null);
   }
 
-  const cur = active;
+  // active가 null인데 뷰가 prep/taste/reveal/summary면 sessionStorage에서 복원
+  let cur = active;
+  if(!cur && ["prep","taste","reveal","summary"].includes(view)) {
+    try {
+      const backed = sessionStorage.getItem("bt-active");
+      if(backed) { cur = JSON.parse(backed); setActive(cur); }
+    } catch(e) {}
+    if(!cur) { setView("list"); }
+  }
   const p_=cur?.participants?.[pIdx], wno_=wineIdx+1;
   const gval=(field)=>cur?.guesses?.[p_]?.[wno_]?.[field]||"";
   const IST={width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box",background:TH.INP,color:TH.T1};
