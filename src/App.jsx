@@ -421,6 +421,36 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [pIdx, setPIdx] = useState(0);
 
   // ── 멀티플레이어 / 초대 코드 ─────────────────────────────────────
+  // ── 호스트 PIN 인증 ────────────────────────────────────────────
+  const [hostPin, setHostPin] = useState(()=>localStorage.getItem("blind-host-pin")||"");
+  const [isHost, setIsHost] = useState(()=>!!localStorage.getItem("blind-host-authed"));
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+
+  function verifyPin(pin) {
+    if(!hostPin) { setIsHost(true); localStorage.setItem("blind-host-authed","1"); return; }
+    if(pin===hostPin) {
+      setIsHost(true);
+      localStorage.setItem("blind-host-authed","1");
+      setPinError("");
+    } else {
+      setPinError("PIN이 맞지 않습니다");
+    }
+  }
+  function saveHostPin(pin) {
+    if(!pin.trim()) {
+      localStorage.removeItem("blind-host-pin");
+      localStorage.removeItem("blind-host-authed");
+      setHostPin(""); setIsHost(true);
+      toast("PIN 잠금 해제됨 (누구나 접근 가능)", "info");
+    } else {
+      localStorage.setItem("blind-host-pin", pin.trim());
+      localStorage.setItem("blind-host-authed","1");
+      setHostPin(pin.trim()); setIsHost(true);
+      toast("PIN 설정됨", "info");
+    }
+  }
+
   const [joinCode, setJoinCode] = useState(() => {
     const p = new URLSearchParams(window.location.search);
     return p.get("join") || "";
@@ -818,6 +848,41 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     return {ACountry,ARegion,AVillage,AClassification,AGrape,AVintage};
   };
 
+  // ════ PIN 입력 화면 (호스트 인증) ════
+  if(!isHost && !joinCode && view==="list") {
+    return (
+      <div style={{minHeight:"100vh",background:"#F7F4F0",fontFamily:"system-ui,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+        <div style={{width:"100%",maxWidth:360}}>
+          <div style={{textAlign:"center",marginBottom:32}}>
+            <div style={{fontSize:48,marginBottom:8}}>🍷</div>
+            <div style={{fontSize:22,fontWeight:800,color:RED}}>블라인드 테이스팅</div>
+          </div>
+          <div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 2px 16px rgba(0,0,0,.08)",marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#333",marginBottom:4}}>호스트로 입장</div>
+            <div style={{fontSize:12,color:"#aaa",marginBottom:12}}>세션을 만들고 관리하려면 PIN을 입력하세요</div>
+            <input type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter")verifyPin(pinInput);}}
+              placeholder="HOST PIN"
+              style={{width:"100%",border:`2px solid ${pinError?RED:"#ddd"}`,borderRadius:8,padding:"10px 14px",fontSize:18,fontWeight:700,textAlign:"center",letterSpacing:4,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            {pinError&&<div style={{color:RED,fontSize:12,marginBottom:8,textAlign:"center"}}>{pinError}</div>}
+            <button onClick={()=>verifyPin(pinInput)}
+              style={{width:"100%",background:RED,color:"#fff",border:"none",borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+              입장하기
+            </button>
+          </div>
+          <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 2px 16px rgba(0,0,0,.08)"}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#333",marginBottom:4}}>초대 코드로 참여</div>
+            <div style={{fontSize:12,color:"#aaa",marginBottom:12}}>호스트에게 초대 코드를 받으셨나요?</div>
+            <button onClick={()=>setView("join")}
+              style={{width:"100%",background:"#fff",color:RED,border:`2px solid ${RED}`,borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+              🔑 코드로 참여하기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ════ JOIN VIEW (참가자 입장 화면) ════
   if(view==="join") {
     return (
@@ -965,6 +1030,18 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             </div>
 
             {geminiKey&&<div style={{fontSize:11,color:"#2E7D32",marginTop:4}}>✓ 키 설정됨</div>}
+            {/* HOST PIN 설정 */}
+            <div style={{borderTop:"1px solid #eee",marginTop:12,paddingTop:12}}>
+              <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:6}}>🔐 호스트 PIN <span style={{fontWeight:400}}>(설정 시 PIN 모르는 사람은 초대 참여만 가능)</span></div>
+              <div style={{display:"flex",gap:8}}>
+                <input type="password" placeholder={hostPin?"••••":"PIN 없음 (공개)"}
+                  onChange={e=>setPinInput(e.target.value)}
+                  style={{flex:1,border:"1px solid #ddd",borderRadius:6,padding:"7px 10px",fontSize:12,outline:"none"}}/>
+                <button onClick={()=>saveHostPin(pinInput)}
+                  style={{background:"#555",color:"#fff",border:"none",borderRadius:6,padding:"7px 12px",fontSize:12,cursor:"pointer"}}>저장</button>
+              </div>
+              {hostPin&&<div style={{fontSize:10,color:RED,marginTop:3}}>🔐 PIN 잠금 활성화 중 · 비워서 저장하면 해제</div>}
+            </div>
             {/* ── 데이터 백업/복원 ── */}
             <div style={{borderTop:`1px solid ${TH.BD}`,marginTop:12,paddingTop:12}}>
               <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:8}}>💾 데이터 백업/복원</div>
@@ -1125,7 +1202,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                     </select>
                     <button onClick={()=>{setEditingNameId(s.id);setEditingNameVal(s.name);}}
                       style={{background:"none",border:"none",color:TH.T3,fontSize:14,cursor:"pointer"}}>✏️</button>
-                    <button onClick={()=>deleteSession(s.id)}
+                    <button onClick={e=>{e.stopPropagation();deleteSession(s.id);}}
                       style={{background:"none",border:"none",color:TH.T3,fontSize:16,cursor:"pointer"}}>🗑</button>
                   </div>
                 </div>
@@ -1500,6 +1577,17 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               ))}
             </div>
             <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>참가자</div>
+            {/* 최근 참가자 빠른 추가 */}
+            {tasters.filter(t=>t&&!sParts.includes(t)).length>0&&(
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+                {tasters.filter(t=>t&&!sParts.includes(t)).map(t=>(
+                  <button key={t} onClick={()=>setSParts(p=>[...p,t])}
+                    style={{padding:"4px 10px",border:"1px dashed "+RED,borderRadius:14,fontSize:12,color:RED,background:"#fff",cursor:"pointer"}}>
+                    + {t}
+                  </button>
+                ))}
+              </div>
+            )}
             {sParts.map((p,i)=>(
               <div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
                 <input value={p} onChange={e=>{const a=[...sParts];a[i]=e.target.value;setSParts(a);}}
@@ -1663,7 +1751,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 {/* 와인 이름 (정답에만 있음) */}
                 <div style={{marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>와인 이름</div>
-                  <input value={ans.nameKR||""} onChange={e=>updateAnswer(wno,"nameKR",e.target.value)} placeholder="예: 주브레 샹베르탱 레숌"
+                  <input value={ans.nameKR||""} onChange={e=>updateAnswer(wno,"nameKR",e.target.value)} placeholder="예: 오퍼스 원, 샤토 마고"
                     style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
                 </div>
                 {(()=>{const {ACountry,ARegion,AVillage,AClassification,AGrape,AVintage}=makeAnswerComponents(wno); return(<>{ACountry()}{ARegion()}{AVillage()}{AClassification()}{AGrape()}{AVintage()}</>);})()}
@@ -1889,7 +1977,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 <div style={{fontSize:16,fontWeight:800,color:RED,marginBottom:12}}>#{wno}</div>
                 <div style={{marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>와인 이름</div>
-                  <input value={ans.nameKR||""} onChange={e=>updateAnswer(wno,"nameKR",e.target.value)} placeholder="예: 주브레 샹베르탱 레숌"
+                  <input value={ans.nameKR||""} onChange={e=>updateAnswer(wno,"nameKR",e.target.value)} placeholder="예: 오퍼스 원, 샤토 마고"
                     style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
                 </div>
                 {(()=>{const {ACountry,ARegion,AVillage,AClassification,AGrape,AVintage}=makeAnswerComponents(wno); return(<>{ACountry()}{ARegion()}{AVillage()}{AClassification()}{AGrape()}{AVintage()}</>);})()}
