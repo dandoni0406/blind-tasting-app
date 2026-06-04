@@ -508,6 +508,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       setActive(latest);
     });
     setShowCodeShare(true); // 초대 코드 먼저 보여주기
+    setView("list"); // 리스트 뷰로 이동 (오버레이가 거기 있음)
   }
   function lockAnswersAndStart() {
     setActive(prev=>({...prev, answersLocked:true}));
