@@ -14,7 +14,7 @@ const WINE_ORIGINS = {"프랑스": {"부르고뉴": ["마르사네", "픽생", "
 const GRAPE_CATEGORIES = {"red": ["카베르네소비뇽", "피노누아", "메를로", "시라/쉬라즈", "네비올로", "산지오베제", "템프라니요", "말벡", "그르나슈", "카베르네프랑", "무르베드르", "진판델", "바르베라", "돌체토", "코르비나", "카리냥", "프티베르도", "생소", "가메", "피노타지", "투리가나시오날", "네그로아마로", "프리미티보", "아글리아니코", "몬테풀치아노", "블라우프랭키슈"], "white": ["샤르도네", "소비뇽블랑", "리슬링", "피노그리지오", "게뷔르츠트라미너", "슈냉블랑", "비오니에", "세미용", "뮈스카", "그뤼너벨트리너", "피노블랑", "알리고테", "베르멘티노", "아시르티코", "카리칸테", "팔랑기나", "가르가네가", "코르테제", "말바지아", "뮈스카데", "마르산", "루산", "실바너"]};
 const GRAPE_LIST = [...GRAPE_CATEGORIES.red, ...GRAPE_CATEGORIES.white];
 const REGION_GRAPES = {"부르고뉴": ["피노누아", "샤르도네", "알리고테", "가메"], "보르도": ["카베르네소비뇽", "메를로", "카베르네프랑", "프티베르도", "세미용", "소비뇽블랑"], "론": ["시라/쉬라즈", "그르나슈", "무르베드르", "비오니에", "마르산", "루산"], "샹파뉴": ["피노누아", "샤르도네", "피노뮈니에"], "루아르": ["슈냉블랑", "소비뇽블랑", "카베르네프랑", "뮈스카데"], "알자스": ["리슬링", "게뷔르츠트라미너", "피노그리지오", "피노블랑"], "쥐라": ["사바냉", "샤르도네", "풀사르", "트루소"], "보졸레": ["가메"], "프로방스": ["그르나슈", "무르베드르", "생소", "시라/쉬라즈"], "피에몬테": ["네비올로", "바르베라", "돌체토", "모스카토"], "토스카나": ["산지오베제", "카베르네소비뇽", "메를로"], "베네토": ["코르비나", "가르가네가", "글레라"], "시칠리아": ["네렐로마스칼레제", "카리칸테", "네로다볼라", "카타라토"], "모젤": ["리슬링"], "라인가우": ["리슬링", "피노누아"], "팔츠": ["리슬링"], "리오하": ["템프라니요", "가르나차", "그라치아노"], "리베라 델 두에로": ["템프라니요"], "프리오라트": ["가르나차", "카리냥"], "리아스 바이샤스": ["알바리뇨"], "시에라 데 그레도스": ["가르나차"], "캘리포니아": ["카베르네소비뇽", "샤르도네", "피노누아", "진판델"], "오리건": ["피노누아", "샤르도네"], "사우스오스트레일리아": ["시라/쉬라즈", "카베르네소비뇽", "그르나슈", "리슬링"], "말버러": ["소비뇽블랑", "피노누아"], "센트럴 오타고": ["피노누아"], "멘도사": ["말벡", "카베르네소비뇽", "샤르도네"], "에게해": ["아시르티코"], "북부그리스": ["크시노마브로"], "도루": ["투리가나시오날", "투리가프란카"]};
-const REGION_CLASSES = {"부르고뉴": ["regional", "village", "premiercru", "grandcru"], "보르도": ["other"], "샹파뉴": ["regional", "premiercru", "grandcru"], "알자스": ["regional", "grandcru"], "루아르": ["regional", "village"], "론": ["regional", "village"], "리오하": ["other"], "피에몬테": ["regional", "village"], "토스카나": ["regional", "other"]};
+const REGION_CLASSES = {"부르고뉴": ["regional", "village", "premiercru", "grandcru"], "보르도": ["regional","village","premiercru","grandcru"], "샹파뉴": ["regional", "premiercru", "grandcru"], "알자스": ["regional", "grandcru"], "루아르": ["regional", "village"], "론": ["regional", "village"], "리오하": ["regional","village","premiercru","grandcru"], "피에몬테": ["regional", "village"], "토스카나": ["regional", "other"]};
 const DEFAULT_CLASSES = ["regional", "other"];
 // ── 토스트 알림 (라이브러리 없이 동작) ──────────────────────────
 function toast(message, type="info", duration=3000) {
@@ -37,6 +37,14 @@ const QUAL_RUBRIC = {
   logic:     { label:"논리 정합성", max:10 },
 };
 const QUAL_MAX = 30;
+// 점수 배지 (와인 등급 패러디)
+function scoreLabel(pct) {
+  if(pct>=90) return {emoji:"🏆",label:"그랑크뤼",color:"#9A7020"};
+  if(pct>=75) return {emoji:"🥇",label:"1er Cru", color:"#8B6914"};
+  if(pct>=50) return {emoji:"🍷",label:"빌라주",  color:"#8B2635"};
+  if(pct>=25) return {emoji:"🌱",label:"레지오날",color:"#2E7D32"};
+  return           {emoji:"🍇",label:"도전중",  color:"#888"};
+}
 
 // ── AI 라벨 스캐너 (Gemini Vision) ──────────────────────────────
 async function callGeminiVision(apiKey, imageBase64, mimeType) {
@@ -750,7 +758,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const GCountry=()=>(
     <div style={{marginBottom:10}}>
       <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>국가</div>
-      <select value={gval("country")} onChange={e=>{updateGuess("country",e.target.value);updateGuess("region","");updateGuess("village","");}} style={{...IST,background:"#fff"}}>
+      <select value={gval("country")} onChange={e=>{updateGuess("country",e.target.value);updateGuess("region","");updateGuess("village","");}} style={{...IST,background:"#fff",color:gval("country")&&gval("country")!=="__other"?"#1a1a1a":"#888"}}>
         <option value="">선택...</option>
         {Object.keys(WINE_ORIGINS).map(c=><option key={c} value={c}>{c}</option>)}
         <option value="__other">기타 (직접입력)</option>
@@ -779,12 +787,21 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const GVillage=()=>{
     const co=gval("country"), r=gval("region");
     let villages=WINE_ORIGINS[co]?.[r]||[];
-    if(!villages.length) Object.values(WINE_ORIGINS).forEach(rg=>Object.values(rg).forEach(vs=>villages.push(...vs)));
+    if(!villages.length && r) Object.values(WINE_ORIGINS[co]||{}).forEach(vs=>villages.push(...vs));
+    // 지역별 큐레이션 popular 마을 (레드/화이트 균형)
+    const VILLAGE_POPULAR={
+      "부르고뉴":["주브레샹베르탱","본로마네","샹볼뮈지니","뫼르소","퓔리니몽라셰","샤사뉴몽라셰","포마르","볼네"],
+      "보르도":["포이약","마고","생줄리앙","생테스테프","포므롤","생테밀리옹","소테른","그라브"],
+      "론":["에르미타주","코트로티","샤토뇌프뒤파프","콩드리외","크로즈에르미타주","지공다스"],
+      "피에몬테":["바롤로","바르바레스코","아스티","알바","가비","모스카토다스티"],
+      "토스카나":["키안티","브루넬로디몬탈치노","몬테풀차노","볼게리","마렘마"],
+    };
+    const popular=r?(VILLAGE_POPULAR[r]||villages.slice(0,8)):[];
     const val=gval("village");
     return (
       <div style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>세부 마을 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
-        <button onClick={()=>{setBsSearch("");setBottomSheet({label:"마을/아펠라시옹 선택",options:[...new Set(villages)],popular:villages.slice(0,8),field:"village"});}}
+        <button onClick={()=>{setBsSearch("");setBottomSheet({label:"마을/아펠라시옹 선택",options:[...new Set(villages)],popular,field:"village"});}}
           style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"9px 12px",fontSize:13,background:TH.INP,color:val?TH.T1:"#aaa",textAlign:"left",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span>{val||"탭하여 선택 (선택사항)"}</span>
           <span style={{fontSize:12,color:"#aaa"}}>▾</span>
@@ -889,7 +906,17 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     };
 
     const AClassification = () => {
-      const allCls = {regional:"지역급",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
+      const allCls = {regional:"레지오날",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
+    // 지역별 등급 라벨 재정의
+    const regionClassLabel = (key, region) => {
+      if(region==="보르도"||region==="보르도 외 산지") {
+        return {regional:"일반 AOP",village:"크뤼 부르주아",premiercru:"크뤼 클라쎄 (2-5등급)",grandcru:"그랑 크뤼 클라쎄",other:"기타"}[key]||key;
+      }
+      if(region==="리오하") {
+        return {regional:"Rioja",village:"크리안사",premiercru:"레세르바",grandcru:"그란 레세르바",other:"기타"}[key]||key;
+      }
+      return allCls[key]||key;
+    };
       const allowed = REGION_CLASSES[ans.region] || DEFAULT_CLASSES;
       return (
         <div style={{marginBottom:10}}>
@@ -2014,10 +2041,13 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>등급{gval("region")&&REGION_CLASSES[gval("region")]&&<span style={{fontWeight:400,color:TH.T3,fontSize:10}}> · {gval("region")} 체계</span>}</div>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                     {(()=>{
-                      const allClasses={regional:"지역급",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
                       const region=gval("region");
                       const allowed=REGION_CLASSES[region]||DEFAULT_CLASSES;
-                      return allowed.map(v=>[v,allClasses[v]]);
+                      const baseLabels={regional:"레지오날",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
+                      const bordeauxLabels={regional:"일반 AOP",village:"크뤼 부르주아",premiercru:"크뤼 클라쎄",grandcru:"그랑 크뤼 클라쎄",other:"기타"};
+                      const riojaLabels={regional:"Rioja",village:"크리안사",premiercru:"레세르바",grandcru:"그란 레세르바",other:"기타"};
+                      const lblMap=region==="보르도"?bordeauxLabels:region==="리오하"?riojaLabels:baseLabels;
+                      return allowed.map(v=>[v,lblMap[v]||v]);
                     })().map(([v,l])=>{
                       const cur_v=cur.guesses[p_]?.[wno_]?.classification||"";
                       const sel=cur_v===v||(v==="other"&&cur_v&&!["regional","village","premiercru","grandcru"].includes(cur_v));
@@ -2510,6 +2540,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                               <button onClick={()=>adjustScore(p,wno,-5)} style={{width:22,height:22,borderRadius:"50%",border:`1px solid ${TH.BD}`,background:"#fff",color:TH.T3,fontSize:13,cursor:"pointer",lineHeight:1,padding:0}}>−</button>
                               <div style={{textAlign:"center",minWidth:60}}>
                                 <div style={{fontSize:14,fontWeight:700,color:finalPct>=60?"#2E7D32":finalPct>=30?"#92400E":"#991B1B"}}>{finalPct}%</div>
+                                <div style={{fontSize:10,color:scoreLabel(finalPct).color,fontWeight:600}}>{scoreLabel(finalPct).emoji} {scoreLabel(finalPct).label}</div>
                                 {hasQual&&(
                                   <div style={{fontSize:9,color:TH.T3,lineHeight:1.4}}>
                                     정량{quantPct}·AI{g.qualScore}
