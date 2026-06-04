@@ -467,6 +467,26 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [showGroupMgr, setShowGroupMgr] = useState(false);
   const [showRubric, setShowRubric] = useState(false);
   const [scanningWno, setScanningWno] = useState(null);
+  const [unboxed, setUnboxed] = useState(new Set()); // 공개된 와인 번호
+
+  function fireConfetti(good=false) {
+    const colors = good
+      ? ["#8B2635","#9A7020","#2E7D32","#1E6FA0","#FFD700","#FF6B6B"]
+      : ["#ddd","#bbb","#aaa"];
+    const container = document.getElementById("confetti-root");
+    if(!container) return;
+    const count = good ? 80 : 20;
+    for(let i=0;i<count;i++){
+      const el = document.createElement("div");
+      const size = 6+Math.random()*8;
+      const color = colors[Math.floor(Math.random()*colors.length)];
+      el.style.cssText = `position:absolute;width:${size}px;height:${size}px;background:${color};border-radius:${Math.random()>0.5?"50%":"2px"};left:${10+Math.random()*80}%;top:0;opacity:1;pointer-events:none;`;
+      el.style.animation = `confetti-fall ${1+Math.random()*2}s ease-in ${Math.random()*0.5}s forwards`;
+      container.appendChild(el);
+      setTimeout(()=>el.remove(), 3000);
+    }
+    if(good && navigator.vibrate) navigator.vibrate([100,50,100]);
+  }
   const [bottomSheet, setBottomSheet] = useState(null); // {field, options, popular}
   const [bsSearch, setBsSearch] = useState(""); // 스캔 중인 와인 번호    // group manager panel
   const [editingGroupId, setEditingGroupId] = useState(null);
@@ -1286,6 +1306,9 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
         </div>
         <ToastContainer toasts={toasts}/>
         {confirmModal&&<ConfirmModal {...confirmModal}/>}
+        {/* 폭죽 컨테이너 */}
+        <div id="confetti-root" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:8888,overflow:"hidden"}}/>
+        <style>{`@keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}`}</style>
       </div>
     );
   }
@@ -2423,7 +2446,24 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             const validScored=scored.filter(s=>!s.skip&&s.score);
             const bestPct=validScored.length?Math.max(...validScored.map(s=>s.score.pct)):0;
             return (
-              <div key={wno} style={CS}>
+              <div key={wno} style={{...CS,position:"relative",overflow:"hidden"}}>
+                {/* 언박싱 오버레이 — 아직 공개 안 한 와인 */}
+                {!unboxed.has(wno)&&(
+                  <div onClick={()=>{
+                    setUnboxed(prev=>new Set([...prev,wno]));
+                    // 내 점수 확인해서 폭죽 여부 결정
+                    const myGuess=cur.guesses[cur.participants[0]]?.[wno]||{};
+                    const myScore=scoreGuessVsAnswer(myGuess,ans,cur.rubric,ans.depth,myGuess.villageAILevel);
+                    fireConfetti(myScore.pct>=60);
+                  }}
+                    style={{position:"absolute",inset:0,zIndex:10,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",background:"rgba(139,38,53,.15)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",borderRadius:12}}>
+                    <div style={{fontSize:36,marginBottom:8}}>🍷</div>
+                    <div style={{fontSize:16,fontWeight:800,color:RED,marginBottom:4}}>#{wno} 와인</div>
+                    <div style={{fontSize:13,color:"#555",background:"rgba(255,255,255,.8)",borderRadius:20,padding:"8px 20px",fontWeight:600}}>
+                      탭하여 결과 공개 ✨
+                    </div>
+                  </div>
+                )}
                 <div style={{fontSize:15,fontWeight:800,color:RED,marginBottom:4}}>#{wno} {ans.nameKR||ans.nameEN||""}</div>
                 {(ans.region||ans.grapeVariety||ans.vintage||ans.classification)&&(
                   <div style={{background:"#FBF4E4",borderRadius:8,padding:"8px 10px",marginBottom:10,fontSize:12,color:"#7a5c10"}}>
