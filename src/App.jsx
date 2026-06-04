@@ -1193,6 +1193,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             );
           })}
         </div>
+        <ToastContainer toasts={toasts}/>
+        {confirmModal&&<ConfirmModal {...confirmModal}/>}
       </div>
     );
   }
