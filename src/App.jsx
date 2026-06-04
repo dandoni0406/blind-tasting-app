@@ -38,128 +38,111 @@ const QUAL_RUBRIC = {
 };
 const QUAL_MAX = 30;
 
-// callGeminiForQual → 정량(마을 의미 판정) + 정성 통합 호출
-async function callGeminiForQual(apiKey, reason, ans, guess) {
-  if (!apiKey) return null;
+// ── callGeminiForBatchWines: 와인 1병 × 모든 참가자를 한 번에 평가 ──
+// 호출 수: (참가자수 × 와인수) → 와인수만큼으로 감소
+// 예) 4명 × 4병 = 16회 → 4회
+async function callGeminiForBatchWines(apiKey, ans, guessesArray) {
+  // guessesArray: [{name, village, reason}]
+  if (!apiKey || !guessesArray?.length) return null;
+
   const wine = [ans.nameKR||ans.nameEN, ans.country, ans.region, ans.subRegion,
     ans.grapeVariety, ans.vintage, ans.classification].filter(Boolean).join(", ");
 
-  // Village semantic assessment fields
-  const gVillage  = (guess?.village||"").trim();
-  const aVillage  = (ans.subRegion||ans.vineyard||"").trim();
-  const hasVillageQ = gVillage && aVillage;
+  // 참가자 데이터를 하나의 텍스트로 합치기
+  const participantsText = guessesArray.map(g => {
+    const lines = [`참가자: ${g.name}`];
+    if(g.village) lines.push(`  예측 마을: ${g.village}`);
+    return lines.join("\n");
+  }).join("\n\n");
 
-  const villageSection = hasVillageQ ? `
+  const hasVillage = guessesArray.some(g => g.village && (ans.subRegion||ans.vineyard));
+  const hasReason  = guessesArray.some(g => g.reason?.trim());
+
+  const villageSection = hasVillage ? `
 ─── 마을/아펠라시옹 의미 판정 ───
-추측: "${gVillage}"
-정답: "${aVillage}"
+정답 마을: "${ans.subRegion||ans.vineyard||""}"
 
-판정 기준 (엄격하게 적용할 것):
-
-✅ "exact" (동일):
- - 표기만 다른 동일 아펠라시옹 (예: 쥐브레샹베르탱=주브레샹베르탱)
- - 공백/하이픈 차이만 있는 경우
-
-✅ "close" (근접) — 아래 조건을 모두 충족해야 함:
- 1. 동일 서브리전 내 지리적 인접 마을
-    예) 코트드뉘 내: 샹볼뮈지니↔모레생드니↔플라제에셰조↔본로마네 (인접 O)
-2. 직접적인 계층 관계 (상위 아펠라시옹↔하위 아펠라시옹)
-    예) 코트드뉘빌라주↔주브레샹베르탱 (광역↔마을)
-    예) 알자스↔알자스그랑크뤼
- 3. 동일 DOC/AOC 내 세부 표기 차이
-    예) 바롤로↔바롤로체레토 (동일 DOC, 생산자 포함 여부 차이)
-
-❌ "miss" (오답) — 아래는 반드시 miss:
- - 다른 서브리전 (예: 코트드뉘 ↔ 코트드본: 포마르↔샹볼뮈지니 = miss)
- - 같은 국가/지역이어도 먼 거리 (예: 샤블리↔뫼르소 = miss, 둘 다 부르고뉴이지만 멀리 떨어짐)
- - 다른 국가의 유사 스타일 (예: 오리건피노↔부르고뉴피노 = miss)
- - 단순히 같은 품종이라는 이유만으로 근접 처리 금지
- - 같은 DOC의 레드/화이트 (에트나로쏘↔에트나비앙코 등): 마을은 이미 동일 DOC라 exact, 품종에서 오답 처리. village 판정은 해당없음
-
-판정은 지리적 사실에 근거해야 하며, "비슷한 스타일"이나 "같은 국가"는 근거가 되지 않습니다.
-반환 필드: "village_level": "exact"|"close"|"miss", "village_note": "한 줄 이유 (예: 코트드뉘 인접 마을)"
+판정 기준 (엄격히 적용):
+✅ "exact": 동일 아펠라시옹 또는 표기만 다른 경우
+✅ "close": 동일 서브리전 내 인접 마을만 (예: 코트드뉘 내 인접 마을)
+  - 계층 관계도 close (예: 코트드뉘빌라주↔주브레샹베르탱)
+❌ "miss": 다른 서브리전, 먼 거리, 국가만 같은 경우
+  - 코트드뉘↔코트드본 = miss
+  - 같은 품종이라는 이유만으로 close 금지
+예측 마을이 없으면 "village_level": null
 ───────────────────────────────` : "";
 
-  const qualSection = reason?.trim() ? `
+  const qualSection = hasReason ? `
 ─── 정성 평가 루브릭 (총 30점) ───
-참가자 추론: "${reason.trim()}"
-
 [항목 1] 감각 묘사 해상도 — 향/부케 (0~8점)
- 8점: 1차·2차·3차 향을 세밀히 분리하고 정답 와인의 핵심 마커를 정확히 포착
- 4~7점: 지배적인 향의 계열은 올바르나 세부 뉘앙스가 뭉뚱그려짐
+ 8점: 1차·2차·3차 향을 세밀히 분리하고 정답 와인 핵심 마커 포착
+ 4~7점: 지배적인 향의 계열은 올바르나 뉘앙스가 뭉뚱그려짐
  0~3점: 실제 와인과 상반된 향 묘사 또는 극히 단조로움
 
 [항목 2] 구조감·텍스처 (0~12점) ← 가장 중요
- 11~12점: 산도·타닌·알코올·바디·피니시를 텍스처 질감까지 구체적으로 묘사
- 6~10점: 강도를 대략 알맞게 파악하고 전체 무게감 설명
+ 11~12점: 산도·타닌·바디·피니시를 텍스처 질감까지 묘사
+ 6~10점: 강도를 대략 알맞게 파악하고 무게감 설명
  0~5점: 정답 와인의 구조감과 명백히 다르게 테이스팅
 
-[항목 3] 논리 정합성·떼루아 이해 (0~10점) — 오답도 구제 가능
- 9~10점: 서술한 묘사와 최종 추론이 완벽히 연결됨. 타당한 오답은 만점 가능
- 5~8점: 관찰과 결론 사이에 연관성이 있으나 일부 논리적 비약 존재
- 0~4점: 서술 내용과 최종 추론이 완전히 모순
+[항목 3] 논리 정합성 (0~10점) — 오답도 구제 가능
+ 9~10점: 묘사→결론 논리가 완벽히 연결됨. 타당한 오답은 만점
+ 5~8점: 연관성 있으나 일부 논리적 비약 존재
+ 0~4점: 묘사와 결론이 완전히 모순
+추론이 없는 참가자는 aroma/structure/logic/feedback 모두 null
 ───────────────────────────────` : "";
 
-  const hasQual = !!reason?.trim();
   const prompt = `당신은 WSET Diploma 수준의 와인 심사위원입니다. 마크다운 없이 순수 JSON만 반환하세요.
 
 정답 와인: ${wine}
 ${villageSection}
 ${qualSection}
 
-반환 형식 (해당 없는 필드는 null):
-{${hasVillageQ?'"village_level":"exact|close|miss","village_note":"한 줄 이유",':""}${hasQual?'"aroma":점수,"structure":점수,"logic":점수,"feedback":"한국어 2~3문장"':'"aroma":null,"structure":null,"logic":null,"feedback":null'}}`;
+=== 평가 대상 참가자 ===
+${participantsText}
+
+모든 참가자를 동시에 평가하여 아래 JSON 형식으로 반환하세요:
+{
+  "results": {
+    "참가자이름": {
+      "village_level": "exact"|"close"|"miss"|null,
+      "village_note": "한 줄 이유 또는 null",
+      "aroma": 0~8 또는 null,
+      "structure": 0~12 또는 null,
+      "logic": 0~10 또는 null,
+      "feedback": "한국어 2~3문장 또는 null"
+    }
+  }
+}
+참가자 이름을 정확히 key로 사용하세요.`;
 
   try {
     const r = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
       { method:"POST",
-        headers:{"Content-Type":"application/json", "x-goog-api-key": apiKey},
+        headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
         body: JSON.stringify({
           contents:[{parts:[{text:prompt}]}],
-          generationConfig:{ responseMimeType:"application/json" }  // JSON 강제 모드
+          generationConfig:{ responseMimeType:"application/json" }
         }) }
     );
     if(!r.ok) {
       const errText = await r.text();
       console.error("[Gemini] HTTP 오류:", r.status, errText);
-      toast("[Gemini API 에러] HTTP " + r.status + " — " + errText.slice(0,100), "error", 5000);
+      alert("[Gemini API 에러] HTTP " + r.status + "\n" + errText.slice(0,300));
       return null;
     }
     const d = await r.json();
     if(d.error) {
-      console.error("[Gemini] API 오류:", d.error.code, d.error.message);
-      toast("[Gemini API 에러] " + (d.error.message||JSON.stringify(d.error)).slice(0,100), "error", 5000);
+      alert("[Gemini API 에러] " + (d.error.message||JSON.stringify(d.error)));
       return null;
     }
-    const text = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    console.log("[Gemini] 응답:", text.slice(0,200));
-    if(!text.trim()) {
-      toast("Gemini 빈 응답 — 잠시 후 다시 시도해주세요.", "warn");
-      return null;
-    }
-    // JSON 강제 모드라 마크다운 없이 순수 JSON → 바로 파싱
+    const text = d.candidates?.[0]?.content?.parts?.[0]?.text||"";
+    if(!text.trim()) { alert("[Gemini API 에러] 빈 응답을 받았습니다."); return null; }
     const parsed = JSON.parse(text);
-
-    const result = {};
-    // Village semantic result
-    if(hasVillageQ && parsed.village_level) {
-      result.villageAILevel = parsed.village_level;
-      result.villageNote    = parsed.village_note||"";
-    }
-    // Qualitative result
-    if(hasQual && parsed.aroma!=null) {
-      const a=Math.max(0,Math.min(8,  parsed.aroma    ||0));
-      const s=Math.max(0,Math.min(12, parsed.structure||0));
-      const l=Math.max(0,Math.min(10, parsed.logic    ||0));
-      result.aroma=a; result.structure=s; result.logic=l;
-      result.score=Math.round((a+s+l)/QUAL_MAX*100);
-      result.feedback=parsed.feedback||"";
-    }
-    return Object.keys(result).length ? result : null;
+    return parsed.results || null;
   } catch(e) {
     console.error("[Gemini] 예외:", e);
-    toast("AI 평가 오류: " + e.message, "error", 5000);
+    alert("AI 평가 중 오류가 발생했습니다: " + e.message);
     return null;
   }
 }
@@ -2534,36 +2517,48 @@ function App() {
     setQualLoading(true);
     try {
       const updated = {...active, guesses: JSON.parse(JSON.stringify(active.guesses||{}))};
+      // 배치 처리: 와인 1병당 1회 API 호출 (16회→4회)
       for (let i = 0; i < active.wineCount; i++) {
         const wno = i + 1;
         const ans = active.answers[wno] || {};
         if (!(ans.region || ans.grapeVariety)) continue;
-        for (const p of active.participants) {
-          if (ans.bringer === p) continue;
-          const g = active.guesses[p]?.[wno] || {};
-          const hasVillage = (g.village||"").trim() && (ans.subRegion||"").trim();
-          const hasReason  = g.reason?.trim();
-          if (!hasVillage && !hasReason) continue;
-          const result = await callGeminiForQual(geminiKey, g.reason||"", ans, g);
-          // 429 방지: 호출 간 3초 간격 (무료 분당 한도 대응)
-          await new Promise(r=>setTimeout(r, 3000));
-          if (result) {
-            const patch = {...(updated.guesses[p]?.[wno]||{})};
-            if (result.villageAILevel) {
-              patch.villageAILevel = result.villageAILevel;
-              patch.villageNote    = result.villageNote || "";
+
+        // 이 와인에 대해 평가 대상 참가자 수집
+        const batchTargets = active.participants
+          .filter(p => ans.bringer !== p)
+          .map(p => {
+            const g = active.guesses[p]?.[wno] || {};
+            return { name:p, village:(g.village||"").trim(), reason:(g.reason||"").trim(), g };
+          })
+          .filter(t => t.village || t.reason);
+
+        if (batchTargets.length === 0) continue;
+
+        console.log(`[AI채점] 와인 #${wno} — ${batchTargets.length}명 배치 평가`);
+        const results = await callGeminiForBatchWines(geminiKey, ans, batchTargets);
+
+        if (results) {
+          Object.entries(results).forEach(([pName, res]) => {
+            if (!res) return;
+            const patch = {...(updated.guesses[pName]?.[wno]||{})};
+            if (res.village_level) {
+              patch.villageAILevel = res.village_level;
+              patch.villageNote    = res.village_note || "";
             }
-            if (result.score !== undefined) {
-              patch.qualScore    = result.score;
-              patch.qualFeedback = result.feedback;
-              patch.aroma        = result.aroma;
-              patch.structure    = result.structure;
-              patch.logic        = result.logic;
+            if (res.aroma != null) {
+              const a = Math.max(0,Math.min(8,  res.aroma    ||0));
+              const s = Math.max(0,Math.min(12, res.structure||0));
+              const l = Math.max(0,Math.min(10, res.logic    ||0));
+              patch.aroma = a; patch.structure = s; patch.logic = l;
+              patch.qualScore    = Math.round((a+s+l)/QUAL_MAX*100);
+              patch.qualFeedback = res.feedback || "";
             }
-            if (!updated.guesses[p]) updated.guesses[p] = {};
-            updated.guesses[p][wno] = patch;
-          }
+            if (!updated.guesses[pName]) updated.guesses[pName] = {};
+            updated.guesses[pName][wno] = patch;
+          });
         }
+        // 와인 간 1.5초 딜레이 (429 방지, 분당 15RPM 여유)
+        if (i < active.wineCount - 1) await new Promise(r => setTimeout(r, 1500));
       }
       onSaveSessions([updated, ...sessions.filter(s => s.id !== updated.id)]);
       return updated;
