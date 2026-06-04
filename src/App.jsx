@@ -1668,6 +1668,119 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     );
   }
 
+  // ── 답변 입력 컴포넌트 팩토리 (Prep/Reveal 뷰용) ────────────────
+  const ISTA = {width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",
+    fontSize:13,outline:"none",boxSizing:"border-box",background:TH.INP,color:TH.T1};
+  const allCls = {regional:"레지오날",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
+  const regionClassLabel = (key, region) => {
+    if(region==="보르도") return {regional:"일반 AOP",village:"크뤼 부르주아",premiercru:"크뤼 클라쎄",grandcru:"그랑 크뤼 클라쎄",other:"기타"}[key]||key;
+    if(region==="리오하") return {regional:"Rioja",village:"크리안사",premiercru:"레세르바",grandcru:"그란 레세르바",other:"기타"}[key]||key;
+    return allCls[key]||key;
+  };
+
+  function makeAnswerComponents(wno) {
+    const ans = cur.answers[wno] || {};
+    const upd = (field, val) => updateAnswer(wno, field, val);
+
+    const ACountry = () => (
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>국가</div>
+        <select value={ans.country||""} onChange={e=>{upd("country",e.target.value);upd("region","");upd("subRegion","");}}
+          style={{...ISTA,background:"#fff"}}>
+          <option value="">선택...</option>
+          {Object.keys(WINE_ORIGINS).map(co=><option key={co} value={co}>{co}</option>)}
+        </select>
+      </div>
+    );
+
+    const ARegion = () => {
+      const regions = WINE_ORIGINS[ans.country]?Object.keys(WINE_ORIGINS[ans.country]):[];
+      return (
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
+          <div style={{position:"relative"}}>
+            <input list={`dl-ans-r-${wno}`} value={ans.region||""} onChange={e=>{upd("region",e.target.value);upd("subRegion","");}}
+              placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={{...ISTA,paddingRight:28}}/>
+            {regions.length>0&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>}
+            <datalist id={`dl-ans-r-${wno}`}>{regions.map(r=><option key={r} value={r}/>)}</datalist>
+          </div>
+        </div>
+      );
+    };
+
+    const AVillage = () => {
+      const villages = WINE_ORIGINS[ans.country]?.[ans.region]
+        ||[...new Set(Object.values(WINE_ORIGINS).flatMap(rg=>Object.values(rg).flat()))];
+      return (
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>마을/아펠라시옹 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
+          <div style={{position:"relative"}}>
+            <input list={`dl-ans-v-${wno}`} value={ans.subRegion||""} onChange={e=>upd("subRegion",e.target.value)}
+              placeholder="입력하면 자동완성" style={{...ISTA,paddingRight:28}}/>
+            <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>
+            <datalist id={`dl-ans-v-${wno}`}>{[...new Set(villages)].map(v=><option key={v} value={v}/>)}</datalist>
+          </div>
+        </div>
+      );
+    };
+
+    const AClassification = () => {
+      const allowed = REGION_CLASSES[ans.region]||DEFAULT_CLASSES;
+      return (
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>등급{ans.region&&REGION_CLASSES[ans.region]?` (${ans.region})`:""}</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {allowed.map(v=>(
+              <button key={v} onClick={()=>upd("classification",v)}
+                style={{padding:"6px 11px",border:`1px solid ${ans.classification===v?RED:"#ddd"}`,borderRadius:18,fontSize:12,
+                  fontWeight:ans.classification===v?700:400,background:ans.classification===v?RED:"#fff",
+                  color:ans.classification===v?"#fff":"#666",cursor:"pointer"}}>
+                {regionClassLabel(v,ans.region)}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    const AGrape = () => {
+      const sel = (ans.grapeVariety||"").split(",").map(s=>s.trim()).filter(Boolean);
+      const toggle = (g) => { const next=sel.includes(g)?sel.filter(x=>x!==g):[...sel,g]; upd("grapeVariety",next.join(", ")); };
+      return (
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>품종 <span style={{fontWeight:400,color:TH.T3}}>(복수 선택)</span></div>
+          {[["🍷 레드",GRAPE_CATEGORIES.red],["🥂 화이트",GRAPE_CATEGORIES.white]].map(([label,grapes])=>(
+            <div key={label} style={{marginBottom:6}}>
+              <div style={{fontSize:10,color:TH.T3,marginBottom:4}}>{label}</div>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                {grapes.map(g=><button key={g} onClick={()=>toggle(g)}
+                  style={{padding:"4px 10px",border:`1px solid ${sel.includes(g)?RED:"#ddd"}`,borderRadius:16,fontSize:12,
+                    fontWeight:sel.includes(g)?700:400,background:sel.includes(g)?RED:"#fff",
+                    color:sel.includes(g)?"#fff":"#666",cursor:"pointer",marginBottom:4}}>{g}</button>)}
+              </div>
+            </div>
+          ))}
+          <input value={sel.filter(g=>!Object.values(GRAPE_CATEGORIES).flat().includes(g)).join(", ")||""}
+            onChange={e=>upd("grapeVariety",[...sel.filter(g=>Object.values(GRAPE_CATEGORIES).flat().includes(g)),
+              ...e.target.value.split(",").map(s=>s.trim()).filter(Boolean)].join(", "))}
+            placeholder="직접 입력 후 Enter"
+            style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:12,outline:"none",boxSizing:"border-box",marginTop:4}}/>
+        </div>
+      );
+    };
+
+    const AVintage = () => (
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지</div>
+        <input type="number" inputMode="numeric" min="1900" max="2030" value={ans.vintage||""}
+          onChange={e=>upd("vintage",e.target.value)}
+          placeholder="예: 2019" style={{...ISTA,width:120}}/>
+      </div>
+    );
+
+    return {ACountry,ARegion,AVillage,AClassification,AGrape,AVintage};
+  }
+
   // ════ PREP VIEW (host pre-registers answers) ════
   if(view==="prep"&&cur) {
     const allFilled = Array.from({length:cur.wineCount}).every((_,i)=>{
