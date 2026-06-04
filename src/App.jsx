@@ -38,6 +38,40 @@ const QUAL_RUBRIC = {
 };
 const QUAL_MAX = 30;
 
+// ── AI 라벨 스캐너 (Gemini Vision) ──────────────────────────────
+async function callGeminiVision(apiKey, imageBase64, mimeType) {
+  if (!apiKey) return null;
+  const prompt = `이 와인 라벨 사진을 분석하여 아래 JSON 형식으로만 반환하세요. 읽을 수 없으면 null:
+{
+  "nameKR": "와인 이름 (한글 또는 영문)",
+  "country": "국가명 (한국어, 예: 프랑스, 이탈리아)",
+  "region": "지역명 (한국어, 예: 부르고뉴, 피에몬테)",
+  "subRegion": "마을/아펠라시옹 (한국어, 예: 주브레샹베르탱)",
+  "grapeVariety": "품종 (한국어, 예: 피노누아, 네비올로)",
+  "vintage": "빈티지 연도 (숫자만, 예: 2019)",
+  "classification": "등급 (예: 그랑크뤼, 1er Cru, DOC)"
+}`;
+  try {
+    const r = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
+      { method:"POST",
+        headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
+        body: JSON.stringify({
+          contents:[{ parts:[
+            { inline_data:{ mime_type:mimeType, data:imageBase64 } },
+            { text: prompt }
+          ]}],
+          generationConfig:{ responseMimeType:"application/json" }
+        }) }
+    );
+    if(!r.ok) { const t=await r.text(); alert("[라벨 스캔 오류] HTTP "+r.status+"\n"+t.slice(0,200)); return null; }
+    const d = await r.json();
+    if(d.error) { alert("[라벨 스캔 오류] "+d.error.message); return null; }
+    const text = d.candidates?.[0]?.content?.parts?.[0]?.text||"";
+    return text ? JSON.parse(text) : null;
+  } catch(e) { alert("라벨 스캔 오류: "+e.message); return null; }
+}
+
 // ── callGeminiForBatchWines: 와인 1병 × 모든 참가자를 한 번에 평가 ──
 // 호출 수: (참가자수 × 와인수) → 와인수만큼으로 감소
 // 예) 4명 × 4병 = 16회 → 4회
@@ -377,7 +411,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [editingNameVal, setEditingNameVal] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showGroupMgr, setShowGroupMgr] = useState(false);
-  const [showRubric, setShowRubric] = useState(false);    // group manager panel
+  const [showRubric, setShowRubric] = useState(false);
+  const [scanningWno, setScanningWno] = useState(null); // 스캔 중인 와인 번호    // group manager panel
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [editingGroupVal, setEditingGroupVal] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
@@ -1733,6 +1768,39 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             return (
               <div key={wno} style={CS}>
                 <div style={{fontSize:16,fontWeight:800,color:TH.T1,marginBottom:12}}>#{wno}</div>
+                {/* 📷 라벨 스캐너 버튼 */}
+                <div style={{marginBottom:12}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:geminiKey?"#FDF1F2":"#f5f5f5",border:`1px dashed ${geminiKey?RED:"#ccc"}`,borderRadius:10,cursor:geminiKey?"pointer":"default",justifyContent:"center"}}>
+                    {scanningWno===wno
+                      ? <span style={{fontSize:13,color:"#888"}}>🔍 라벨 분석 중...</span>
+                      : <>
+                          <span style={{fontSize:18}}>📷</span>
+                          <span style={{fontSize:13,fontWeight:600,color:geminiKey?RED:"#aaa"}}>
+                            {geminiKey ? "라벨 스캔으로 자동 입력" : "라벨 스캔 (Gemini 키 필요)"}
+                          </span>
+                        </>
+                    }
+                    {geminiKey&&scanningWno!==wno&&<input type="file" accept="image/*" capture="environment" style={{display:"none"}}
+                      onChange={async(e)=>{
+                        const file=e.target.files?.[0]; if(!file) return;
+                        setScanningWno(wno);
+                        const base64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.readAsDataURL(file);});
+                        const result=await callGeminiVision(geminiKey,base64,file.type);
+                        if(result){
+                          if(result.nameKR) updateAnswer(wno,"nameKR",result.nameKR);
+                          if(result.country) updateAnswer(wno,"country",result.country);
+                          if(result.region) updateAnswer(wno,"region",result.region);
+                          if(result.subRegion) updateAnswer(wno,"subRegion",result.subRegion);
+                          if(result.grapeVariety) updateAnswer(wno,"grapeVariety",result.grapeVariety);
+                          if(result.vintage) updateAnswer(wno,"vintage",result.vintage);
+                          if(result.classification) updateAnswer(wno,"classification",result.classification);
+                          toast("✅ 라벨 스캔 완료! 확인 후 수정하세요","info",4000);
+                        }
+                        setScanningWno(null);
+                        e.target.value="";
+                      }}/>}
+                  </label>
+                </div>
                 {/* 와인 이름 (정답에만 있음) */}
                 <div style={{marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>와인 이름</div>
