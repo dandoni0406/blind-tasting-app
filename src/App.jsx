@@ -10,12 +10,15 @@ function cleanName(name, vintage) {
   return name.replace(new RegExp(`\\s*${vintage}\\s*$`), "").trim();
 }
 
-const WINE_ORIGINS = {"프랑스": {"부르고뉴": ["마르사네", "픽생", "주브레샹베르탱", "모레생드니", "샹볼뮈지니", "부조", "본로마네", "뉘생조르주", "사비니레본", "알록스코르통", "본", "포마르", "볼네", "몽텔리", "오세뒤레스", "뫼르소", "퓔리니몽라셰", "샤사뉴몽라셰", "생토뱅", "상트네", "코트드뉘빌라주", "코트드본빌라주", "부르고뉴 오트 코트 드 뉘", "부르고뉴 오트 코트 드 본", "프티샤블리", "샤블리", "마콩", "생베랑", "풀리퓌세", "지브리", "메르퀴레", "뤼이"], "보르도": ["마고", "포이약", "생쥘리앵", "생테스테프", "오메독", "메독", "리스트락메독", "물리", "페삭레오냥", "그라브", "소테른", "바르삭", "생테밀리옹", "포므롤", "라랑드드포므롤", "프롱사크", "카농프롱사크"], "론": ["코트로티", "콩드리외", "샤토그리예", "생조제프", "에르미타주", "크로즈에르미타주", "코르나스", "샤토뇌프뒤파프", "지공다스", "바케라스", "뱅소브르", "라스토", "타벨", "리락"], "샹파뉴": ["몽타뉴드랭스", "발레드라마른", "코트데블랑", "코트데바르", "아이", "크라망", "아비즈"], "루아르": ["상세르", "푸이퓌메", "뮈스카데", "부브레", "몽루이", "시농", "부르괴유", "소뮈르", "소뮈르 상피니", "앙주", "사브니에르"], "알자스": ["알자스", "알자스 그랑 크뤼"], "쥐라": ["아르부아", "아르부아 풀사르", "샤토샬롱", "레투알", "크레망 뒤 쥐라"], "프로방스": ["방돌", "카시스", "레보드프로방스", "코트드프로방스"], "랑그도크루시용": ["피투", "코르비에르", "미네르부아", "포제르", "생시니앙", "피크풀 드 피네"], "남서부": ["카오르", "마디랑", "쥐랑송", "가이약", "베르주라크"], "보졸레": ["물랭아방", "플뢰리", "모르공", "쥘리에나", "시루블", "브루이", "코트드브루이", "레니에", "쉐나", "생타무르"]}, "이탈리아": {"피에몬테": ["바롤로", "바르바레스코", "바르베라 달바", "바르베라 다스티", "돌체토 달바", "랑게 네비올로", "랑게", "모스카토 다스티", "가비", "가티나라", "겜메", "로에로", "알타 랑가"], "토스카나": ["브루넬로 디 몬탈치노", "로쏘 디 몬탈치노", "키안티 클라시코", "키안티 루피나", "키안티", "비노 노빌레 디 몬테풀치아노", "로쏘 디 몬테풀치아노", "볼게리", "볼게리 사시카이아", "모렐리노 디 스칸사노", "베르나치아 디 산지미냐노", "카르미냐노", "수베레토", "IGT 토스카나"], "베네토": ["아마로네 델라 발폴리첼라", "발폴리첼라", "발폴리첼라 리파소", "레치오토 델라 발폴리첼라", "소아베", "소아베 클라시코", "바르돌리노", "프로세코"], "시칠리아": ["에트나 로쏘", "에트나 비앙코", "에트나 로사토", "체라수올로 디 비토리아", "노토", "마르살라"], "롬바르디아": ["프란치아코르타", "발텔리나 수페리오레", "루가나"], "캄파니아": ["타우라시", "피아노 디 아벨리노", "그레코 디 투포"], "아브루초": ["몬테풀치아노 다브루초", "트레비아노 다브루초"], "움브리아": ["몬테팔코 사그란티노", "몬테팔코", "오르비에토"], "프리울리": ["콜리오", "프리울리 코일 오리엔탈리", "프리울리"], "풀리아": ["프리미티보 디 만두리아", "살리체 살렌티노", "네그로아마로"], "사르데냐": ["베르멘티노 디 갈루라", "칸노나우 디 사르데냐"], "트렌티노알토아디제": ["알토 아디제", "트렌티노", "트렌토"]}, "독일": {"모젤": ["베른카스텔", "피스포르트", "벨렌", "그라하", "위르치히", "에르덴", "브라우네베르크"], "라인가우": ["뤼데스하임", "요하니스베르크", "에르바흐", "라우엔탈"], "팔츠": ["다이데스하임", "포르스트", "루퍼츠베르크", "바헨하임"], "나에": ["니더하우젠", "슐로스뵈켈하임"], "라인헤센": ["니어슈타인", "오펜하임"], "바덴": ["카이저슈툴", "오르테나우"]}, "스페인": {"리오하": ["리오하 알타", "리오하 알라베사", "리오하 오리엔탈"], "리베라 델 두에로": ["리베라 델 두에로"], "프리오라트": ["프리오라트", "몬산트"], "루에다": ["루에다"], "리아스 바이샤스": ["리아스 바이샤스", "살네스"], "카탈루냐": ["페네데스", "카바", "엠포르다"], "시에라 데 그레도스": ["시에라 데 그레도스"], "비에르소": ["비에르소"], "헤레스": ["헤레스", "만사니야"], "토로": ["토로"]}, "미국": {"캘리포니아": ["나파 밸리", "오크빌", "러더퍼드", "스택스 립", "하웰 마운틴", "칼리스토가", "소노마", "러시안 리버 밸리", "드라이 크릭 밸리", "산타 바바라", "산타 리타 힐스", "산타 루시아 하이랜즈", "파소 로블레스"], "오리건": ["윌래밋 밸리", "던디 힐스", "에올라아미티 힐스"], "워싱턴": ["컬럼비아 밸리", "왈라왈라", "레드 마운틴"]}, "호주": {"사우스오스트레일리아": ["바로사 밸리", "에덴 밸리", "맥라렌 베일", "쿠나와라", "클레어 밸리", "애들레이드 힐스"], "빅토리아": ["야라 밸리", "모닝턴 페닌술라", "히스코트"], "서호주": ["마가렛 리버"], "뉴사우스웨일스": ["헌터 밸리"], "태즈메이니아": ["태즈메이니아"]}, "뉴질랜드": {"말버러": ["말버러", "와이라우 밸리", "아와테레 밸리"], "센트럴 오타고": ["센트럴 오타고", "배녹번"], "혹스 베이": ["혹스 베이", "김블렛 그래블스"], "마틴버러": ["마틴버러"]}, "아르헨티나": {"멘도사": ["우코 밸리", "루한 데 쿠요", "마이푸", "투푼가토"], "살타": ["카파야테", "칼차키 밸리"], "파타고니아": ["리오 네그로"]}, "칠레": {"아콩카과": ["카사블랑카 밸리", "산안토니오", "아콩카과 밸리"], "센트럴 밸리": ["마이포 밸리", "카차포알", "콜차과 밸리", "쿠리코"], "비오비오": ["비오비오", "이타타"]}, "포르투갈": {"도루": ["도루", "포트"], "알렌테주": ["알렌테주", "에스트레모스", "보르바"], "다웅": ["다웅"], "바이라다": ["바이라다"], "비뉴 베르드": ["비뉴 베르드"]}, "오스트리아": {"니더외스터라이히": ["바하우", "크렘스탈", "캄프탈", "바인피어텔"], "부르겐란트": ["노이지들러제", "미텔부르겐란트"], "슈타이어마르크": ["남슈타이어마르크"]}, "남아프리카": {"웨스턴케이프": ["스텔렌보스", "파를", "프란슈후크", "스와트란트", "콘스탄시아"]}, "그리스": {"에게해": ["산토리니"], "북부그리스": ["나우사", "아민테오"], "펠로폰네소스": ["네메아"]}};
-const GRAPE_CATEGORIES = {"red": ["카베르네소비뇽", "피노누아", "메를로", "시라/쉬라즈", "네비올로", "산지오베제", "템프라니요", "말벡", "그르나슈", "카베르네프랑", "무르베드르", "진판델", "바르베라", "돌체토", "코르비나", "카리냥", "프티베르도", "생소", "가메", "피노타지", "투리가나시오날", "네그로아마로", "프리미티보", "아글리아니코", "몬테풀치아노", "블라우프랭키슈"], "white": ["샤르도네", "소비뇽블랑", "리슬링", "피노그리지오", "게뷔르츠트라미너", "슈냉블랑", "비오니에", "세미용", "뮈스카", "그뤼너벨트리너", "피노블랑", "알리고테", "베르멘티노", "아시르티코", "카리칸테", "팔랑기나", "가르가네가", "코르테제", "말바지아", "뮈스카데", "마르산", "루산", "실바너"]};
-const GRAPE_LIST = [...GRAPE_CATEGORIES.red, ...GRAPE_CATEGORIES.white];
-const REGION_GRAPES = {"부르고뉴": ["피노누아", "샤르도네", "알리고테", "가메"], "보르도": ["카베르네소비뇽", "메를로", "카베르네프랑", "프티베르도", "세미용", "소비뇽블랑"], "론": ["시라/쉬라즈", "그르나슈", "무르베드르", "비오니에", "마르산", "루산"], "샹파뉴": ["피노누아", "샤르도네", "피노뮈니에"], "루아르": ["슈냉블랑", "소비뇽블랑", "카베르네프랑", "뮈스카데"], "알자스": ["리슬링", "게뷔르츠트라미너", "피노그리지오", "피노블랑"], "쥐라": ["사바냉", "샤르도네", "풀사르", "트루소"], "보졸레": ["가메"], "프로방스": ["그르나슈", "무르베드르", "생소", "시라/쉬라즈"], "피에몬테": ["네비올로", "바르베라", "돌체토", "모스카토"], "토스카나": ["산지오베제", "카베르네소비뇽", "메를로"], "베네토": ["코르비나", "가르가네가", "글레라"], "시칠리아": ["네렐로마스칼레제", "카리칸테", "네로다볼라", "카타라토"], "모젤": ["리슬링"], "라인가우": ["리슬링", "피노누아"], "팔츠": ["리슬링"], "리오하": ["템프라니요", "가르나차", "그라치아노"], "리베라 델 두에로": ["템프라니요"], "프리오라트": ["가르나차", "카리냥"], "리아스 바이샤스": ["알바리뇨"], "시에라 데 그레도스": ["가르나차"], "캘리포니아": ["카베르네소비뇽", "샤르도네", "피노누아", "진판델"], "오리건": ["피노누아", "샤르도네"], "사우스오스트레일리아": ["시라/쉬라즈", "카베르네소비뇽", "그르나슈", "리슬링"], "말버러": ["소비뇽블랑", "피노누아"], "센트럴 오타고": ["피노누아"], "멘도사": ["말벡", "카베르네소비뇽", "샤르도네"], "에게해": ["아시르티코"], "북부그리스": ["크시노마브로"], "도루": ["투리가나시오날", "투리가프란카"]};
-const REGION_CLASSES = {"부르고뉴": ["regional", "village", "premiercru", "grandcru"], "보르도": ["regional","village","premiercru","grandcru"], "샹파뉴": ["regional", "premiercru", "grandcru"], "알자스": ["regional", "grandcru"], "루아르": ["regional", "village"], "론": ["regional", "village"], "리오하": ["regional","village","premiercru","grandcru"], "피에몬테": ["regional", "village"], "토스카나": ["regional", "other"]};
-const DEFAULT_CLASSES = ["regional", "other"];
+import {
+  WINE_ORIGINS,
+  GRAPE_CATEGORIES,
+  GRAPE_LIST,
+  REGION_GRAPES,
+  REGION_CLASSES,
+  DEFAULT_CLASSES,
+} from './wineData.js';
+
 // ── 토스트 알림 (라이브러리 없이 동작) ──────────────────────────
 function toast(message, type="info", duration=3000) {
   if(typeof document === "undefined") return;
@@ -81,81 +84,37 @@ async function callGeminiVision(apiKey, imageBase64, mimeType) {
 }
 
 // ── callGeminiForBatchWines: 와인 1병 × 모든 참가자를 한 번에 평가 ──
-// 호출 수: (참가자수 × 와인수) → 와인수만큼으로 감소
-// 예) 4명 × 4병 = 16회 → 4회
-async function callGeminiForBatchWines(apiKey, ans, guessesArray) {
-  // guessesArray: [{name, village, reason}]
-  if (!apiKey || !guessesArray?.length) return null;
+async function callGeminiForBatchWines(apiKey, ans, batchTargets) {
+  if (!apiKey || !batchTargets.length) return null;
 
-  const wine = [ans.nameKR||ans.nameEN, ans.country, ans.region, ans.subRegion,
+  const wineInfo = [ans.nameKR||ans.nameEN, ans.country, ans.region, ans.subRegion,
     ans.grapeVariety, ans.vintage, ans.classification].filter(Boolean).join(", ");
 
-  // 참가자 데이터를 하나의 텍스트로 합치기
-  const participantsText = guessesArray.map(g => {
-    const lines = [`참가자: ${g.name}`];
-    if(g.village) lines.push(`  예측 마을: ${g.village}`);
-    return lines.join("\n");
-  }).join("\n\n");
-
-  const hasVillage = guessesArray.some(g => g.village && (ans.subRegion||ans.vineyard));
-  const hasReason  = guessesArray.some(g => g.reason?.trim());
-
-  const villageSection = hasVillage ? `
-─── 마을/아펠라시옹 의미 판정 ───
-정답 마을: "${ans.subRegion||ans.vineyard||""}"
-
-판정 기준 (엄격히 적용):
-✅ "exact": 동일 아펠라시옹 또는 표기만 다른 경우
-✅ "close": 동일 서브리전 내 인접 마을만 (예: 코트드뉘 내 인접 마을)
-  - 계층 관계도 close (예: 코트드뉘빌라주↔주브레샹베르탱)
-❌ "miss": 다른 서브리전, 먼 거리, 국가만 같은 경우
-  - 코트드뉘↔코트드본 = miss
-  - 같은 품종이라는 이유만으로 close 금지
-예측 마을이 없으면 "village_level": null
-───────────────────────────────` : "";
-
-  const qualSection = hasReason ? `
-─── 정성 평가 루브릭 (총 30점) ───
-[항목 1] 감각 묘사 해상도 — 향/부케 (0~8점)
- 8점: 1차·2차·3차 향을 세밀히 분리하고 정답 와인 핵심 마커 포착
- 4~7점: 지배적인 향의 계열은 올바르나 뉘앙스가 뭉뚱그려짐
- 0~3점: 실제 와인과 상반된 향 묘사 또는 극히 단조로움
-
-[항목 2] 구조감·텍스처 (0~12점) ← 가장 중요
- 11~12점: 산도·타닌·바디·피니시를 텍스처 질감까지 묘사
- 6~10점: 강도를 대략 알맞게 파악하고 무게감 설명
- 0~5점: 정답 와인의 구조감과 명백히 다르게 테이스팅
-
-[항목 3] 논리 정합성 (0~10점) — 오답도 구제 가능
- 9~10점: 묘사→결론 논리가 완벽히 연결됨. 타당한 오답은 만점
- 5~8점: 연관성 있으나 일부 논리적 비약 존재
- 0~4점: 묘사와 결론이 완전히 모순
-추론이 없는 참가자는 aroma/structure/logic/feedback 모두 null
-───────────────────────────────` : "";
+  const participantsData = batchTargets.map(g => `
+[참가자: ${g.participantName}]
+마을 추측: "${g.village||""}"
+추론 이유: "${g.reason||""}"
+`).join("\n");
 
   const prompt = `당신은 WSET Diploma 수준의 와인 심사위원입니다. 마크다운 없이 순수 JSON만 반환하세요.
 
-정답 와인: ${wine}
-${villageSection}
-${qualSection}
+정답 와인 실제 정보: ${wineInfo}
 
-=== 평가 대상 참가자 ===
-${participantsText}
+─── 채점 대상 참가자 데이터 ───
+${participantsData}
 
-모든 참가자를 동시에 평가하여 아래 JSON 형식으로 반환하세요:
-{
-  "results": {
-    "참가자이름": {
-      "village_level": "exact"|"close"|"miss"|null,
-      "village_note": "한 줄 이유 또는 null",
-      "aroma": 0~8 또는 null,
-      "structure": 0~12 또는 null,
-      "logic": 0~10 또는 null,
-      "feedback": "한국어 2~3문장 또는 null"
-    }
-  }
-}
-참가자 이름을 정확히 key로 사용하세요.`;
+─── 마을/아펠라시옹 의미 판정 기준 (정답 마을: "${ans.subRegion||ans.vineyard||""}") ───
+- exact: 표기만 다르거나 공백 차이인 동일 아펠라시옹
+- close: 동일 서브리전 내 지리적 인접 마을 또는 상하위 계층 관계
+- miss: 다른 서브리전 혹은 먼 거리 (같은 품종이라는 이유만으로 근접 처리 금지)
+
+─── 정성 평가 루브릭 (총 30점 만점) ───
+1. aroma(0~8점): 향 묘사 해상도
+2. structure(0~12점): 구조감 및 텍스처 분석 (가장 중요)
+3. logic(0~10점): 묘사 기반의 논리적 결론 도출 (타당한 오답 고점 부여)
+
+반드시 "참가자 이름"을 Key로 하는 JSON 객체를 반환하세요.
+형식: {"참가자이름": {"village_level":"exact|close|miss", "village_note":"이유", "aroma":점수, "structure":점수, "logic":점수, "feedback":"평가 코멘트"}}`;
 
   try {
     const r = await fetch(
@@ -164,30 +123,23 @@ ${participantsText}
         headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
         body: JSON.stringify({
           contents:[{parts:[{text:prompt}]}],
-          generationConfig:{ responseMimeType:"application/json" }
+          generationConfig:{responseMimeType:"application/json"}
         }) }
     );
     if(!r.ok) {
       const errText = await r.text();
-      console.error("[Gemini] HTTP 오류:", r.status, errText);
-      alert("[Gemini API 에러] HTTP " + r.status + "\n" + errText.slice(0,300));
-      return null;
+      throw new Error(`HTTP ${r.status}: ${errText.slice(0,200)}`);
     }
     const d = await r.json();
-    if(d.error) {
-      alert("[Gemini API 에러] " + (d.error.message||JSON.stringify(d.error)));
-      return null;
-    }
+    if(d.error) throw new Error(d.error.message);
     const text = d.candidates?.[0]?.content?.parts?.[0]?.text||"";
-    if(!text.trim()) { alert("[Gemini API 에러] 빈 응답을 받았습니다."); return null; }
-    const parsed = JSON.parse(text);
-    return parsed.results || null;
+    return JSON.parse(text);
   } catch(e) {
-    console.error("[Gemini] 예외:", e);
-    alert("AI 평가 중 오류가 발생했습니다: " + e.message);
-    return null;
+    console.error("[Gemini Batch Error]:", e);
+    throw e;
   }
 }
+
 
 // ── 다크모드 테마 팔레트 ──────────────────────────────────────────
 function getTheme(dark) {
@@ -411,6 +363,98 @@ function SessionPhotos({ photos=[], onAdd, onDelete, readOnly=false }) {
   );
 }
 
+
+// ── 추측 입력 외부 컴포넌트 (BlindTastingPage 밖으로 분리 → 포커스 버그 방지) ─
+function GCountry({ country, onChange, TH, IST }) {
+  return (
+    <div style={{marginBottom:10}}>
+      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>국가</div>
+      <select value={country} onChange={e=>{onChange("country",e.target.value);onChange("region","");onChange("village","");}}
+        style={{...IST,background:"#fff",color:country&&country!=="__other"?"#1a1a1a":"#888",fontWeight:country?500:400}}>
+        <option value="">선택...</option>
+        {Object.keys(WINE_ORIGINS).map(c=><option key={c} value={c}>{c}</option>)}
+        <option value="__other">기타 (직접입력)</option>
+      </select>
+      {country==="__other"&&<input autoFocus placeholder="국가 직접 입력" onChange={e=>onChange("country",e.target.value)} style={{...IST,marginTop:6}}/>}
+    </div>
+  );
+}
+
+function GRegion({ country, region, onChange, TH, IST, setBottomSheet, setBsSearch }) {
+  const regions = WINE_ORIGINS[country] ? Object.keys(WINE_ORIGINS[country]) : [];
+  const popular = country ? Object.keys(WINE_ORIGINS[country]||{}).slice(0,6)
+    : ["부르고뉴","보르도","피에몬테","토스카나","나파 밸리","말버러"];
+  return (
+    <div style={{marginBottom:10}}>
+      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
+      <button onClick={()=>{setBsSearch("");setBottomSheet({label:"지역 선택",options:regions.length?regions:Object.values(WINE_ORIGINS).flatMap(r=>Object.keys(r)),popular,field:"region"});}}
+        style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"9px 12px",fontSize:13,background:TH.INP,color:region?TH.T1:"#aaa",textAlign:"left",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>{region||"탭하여 선택"}</span>
+        <span style={{fontSize:12,color:"#aaa"}}>▾</span>
+      </button>
+    </div>
+  );
+}
+
+function GVillage({ country, region, village, onChange, TH, setBottomSheet, setBsSearch }) {
+  let villages = WINE_ORIGINS[country]?.[region]||[];
+  if(!villages.length && region) Object.values(WINE_ORIGINS[country]||{}).forEach(vs=>villages.push(...vs));
+  const VILLAGE_POPULAR = {
+    "부르고뉴":["주브레샹베르탱","본로마네","샹볼뮈지니","뫼르소","퓔리니몽라셰","샤사뉴몽라셰","포마르","볼네"],
+    "보르도":["포이약","마고","생줄리앙","생테스테프","포므롤","생테밀리옹","소테른","그라브"],
+    "론":["에르미타주","코트로티","샤토뇌프뒤파프","콩드리외","크로즈에르미타주","지공다스"],
+    "피에몬테":["바롤로","바르바레스코","아스티","알바","가비","모스카토다스티"],
+    "토스카나":["키안티","브루넬로디몬탈치노","몬테풀차노","볼게리","마렘마"],
+  };
+  const popular = region ? (VILLAGE_POPULAR[region]||villages.slice(0,8)) : [];
+  return (
+    <div style={{marginBottom:10}}>
+      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>세부 마을 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
+      <button onClick={()=>{setBsSearch("");setBottomSheet({label:"마을/아펠라시옹 선택",options:[...new Set(villages)],popular,field:"village"});}}
+        style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"9px 12px",fontSize:13,background:TH.INP,color:village?TH.T1:"#aaa",textAlign:"left",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>{village||"탭하여 선택 (선택사항)"}</span>
+        <span style={{fontSize:12,color:"#aaa"}}>▾</span>
+      </button>
+    </div>
+  );
+}
+
+function GGrape({ grape, region, onChange, TH }) {
+  const sel = (grape||"").split(",").map(s=>s.trim()).filter(Boolean);
+  const toggle = (g) => {
+    const next = sel.includes(g) ? sel.filter(x=>x!==g) : [...sel,g];
+    onChange("grape", next.join(", "));
+  };
+  const regionGrapes = region ? (REGION_GRAPES[region]||[]) : [];
+  const cats = GRAPE_CATEGORIES;
+  return (
+    <div style={{marginBottom:10}}>
+      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>품종 <span style={{fontWeight:400,color:TH.T3}}>(복수 선택 가능)</span></div>
+      {regionGrapes.length>0&&(
+        <div style={{marginBottom:6}}>
+          <div style={{fontSize:10,color:TH.T3,marginBottom:4}}>🍷 {region} 주요 품종</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {regionGrapes.map(g=><button key={g} onClick={()=>toggle(g)}
+              style={{padding:"4px 10px",border:`1px solid ${sel.includes(g)?RED:"#ddd"}`,borderRadius:16,fontSize:12,fontWeight:sel.includes(g)?700:400,background:sel.includes(g)?RED:"#fff",color:sel.includes(g)?"#fff":"#666",cursor:"pointer",marginBottom:4}}>{g}</button>)}
+          </div>
+        </div>
+      )}
+      {[["🍷 레드",cats.red],["🥂 화이트",cats.white]].map(([label,grapes])=>(
+        <div key={label} style={{marginBottom:6}}>
+          <div style={{fontSize:10,color:TH.T3,marginBottom:4}}>{label}</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {grapes.map(g=><button key={g} onClick={()=>toggle(g)}
+              style={{padding:"4px 10px",border:`1px solid ${sel.includes(g)?RED:"#ddd"}`,borderRadius:16,fontSize:12,fontWeight:sel.includes(g)?700:400,background:sel.includes(g)?RED:"#fff",color:sel.includes(g)?"#fff":"#666",cursor:"pointer",marginBottom:4}}>{g}</button>)}
+          </div>
+        </div>
+      ))}
+      <input value={sel.filter(g=>!Object.values(cats).flat().includes(g)).join(", ")||""}
+        onChange={e=>onChange("grape",[...sel.filter(g=>Object.values(cats).flat().includes(g)),...e.target.value.split(",").map(s=>s.trim()).filter(Boolean)].join(", "))}
+        placeholder="직접 입력 후 Enter" style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:12,outline:"none",boxSizing:"border-box",marginTop:4}}/>
+    </div>
+  );
+}
+
 // ── 바텀시트 선택기 ───────────────────────────────────────────────
 function BottomSheet({ config, search, onSearch, onSelect, onClose }) {
   if (!config) return null;
@@ -466,8 +510,13 @@ function BottomSheet({ config, search, onSearch, onSelect, onClose }) {
 }
 
 // ── Blind Tasting Session (모임용) ────────────────────────────────
-function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, onBack, tasters, geminiKey, setGeminiKey, runQualEval, qualLoading }) {
-  const [view, setView] = useState("list");
+function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, onBack, tasters, geminiKey, setGeminiKey, runQualEval, qualLoading, initialView, initialJoinCode }) {
+  const [view, setView] = useState(initialView||"list");
+  const [joinCode, setJoinCode] = useState(() => {
+    if (initialJoinCode) return initialJoinCode;
+    const p = new URLSearchParams(window.location.search);
+    return p.get("join") || "";
+  });
   const [grapeShowAll, setGrapeShowAll] = useState(false);
   const [editingNameId, setEditingNameId] = useState(null);
   const [editingNameVal, setEditingNameVal] = useState("");
@@ -553,10 +602,6 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     }
   }
 
-  const [joinCode, setJoinCode] = useState(() => {
-    const p = new URLSearchParams(window.location.search);
-    return p.get("join") || "";
-  });
   const [joinName, setJoinName] = useState("");
   const [joinError, setJoinError] = useState("");
   const [isParticipant, setIsParticipant] = useState(false); // 참가자 모드
@@ -755,220 +800,6 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const gval=(field)=>cur?.guesses?.[p_]?.[wno_]?.[field]||"";
   const IST={width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box",background:TH.INP,color:TH.T1};
   // Country dropdown
-  const GCountry=()=>(
-    <div style={{marginBottom:10}}>
-      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>국가</div>
-      <select value={gval("country")} onChange={e=>{updateGuess("country",e.target.value);updateGuess("region","");updateGuess("village","");}} style={{...IST,background:"#fff",color:gval("country")&&gval("country")!=="__other"?"#1a1a1a":"#888"}}>
-        <option value="">선택...</option>
-        {Object.keys(WINE_ORIGINS).map(c=><option key={c} value={c}>{c}</option>)}
-        <option value="__other">기타 (직접입력)</option>
-      </select>
-      {gval("country")==="__other"&&<input autoFocus placeholder="국가 직접 입력" onChange={e=>updateGuess("country",e.target.value)} style={{...IST,marginTop:6}}/>}
-    </div>
-  );
-  // Region: datalist filtered by country
-  const GRegion=()=>{
-    const co=gval("country");
-    const regions=WINE_ORIGINS[co]?Object.keys(WINE_ORIGINS[co]):[];
-    const popular=co?Object.keys(WINE_ORIGINS[co]||{}).slice(0,6):["부르고뉴","보르도","피에몬테","토스카나","나파 밸리","말버러"];
-    const val=gval("region");
-    return (
-      <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
-        <button onClick={()=>{setBsSearch("");setBottomSheet({label:"지역 선택",options:regions.length?regions:Object.values(WINE_ORIGINS).flatMap(r=>Object.keys(r)),popular,field:"region"});}}
-          style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"9px 12px",fontSize:13,background:TH.INP,color:val?TH.T1:"#aaa",textAlign:"left",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span>{val||"탭하여 선택"}</span>
-          <span style={{fontSize:12,color:"#aaa"}}>▾</span>
-        </button>
-      </div>
-    );
-  };
-  // Village: datalist filtered by region (fallback all villages)
-  const GVillage=()=>{
-    const co=gval("country"), r=gval("region");
-    let villages=WINE_ORIGINS[co]?.[r]||[];
-    if(!villages.length && r) Object.values(WINE_ORIGINS[co]||{}).forEach(vs=>villages.push(...vs));
-    // 지역별 큐레이션 popular 마을 (레드/화이트 균형)
-    const VILLAGE_POPULAR={
-      "부르고뉴":["주브레샹베르탱","본로마네","샹볼뮈지니","뫼르소","퓔리니몽라셰","샤사뉴몽라셰","포마르","볼네"],
-      "보르도":["포이약","마고","생줄리앙","생테스테프","포므롤","생테밀리옹","소테른","그라브"],
-      "론":["에르미타주","코트로티","샤토뇌프뒤파프","콩드리외","크로즈에르미타주","지공다스"],
-      "피에몬테":["바롤로","바르바레스코","아스티","알바","가비","모스카토다스티"],
-      "토스카나":["키안티","브루넬로디몬탈치노","몬테풀차노","볼게리","마렘마"],
-    };
-    const popular=r?(VILLAGE_POPULAR[r]||villages.slice(0,8)):[];
-    const val=gval("village");
-    return (
-      <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>세부 마을 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
-        <button onClick={()=>{setBsSearch("");setBottomSheet({label:"마을/아펠라시옹 선택",options:[...new Set(villages)],popular,field:"village"});}}
-          style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"9px 12px",fontSize:13,background:TH.INP,color:val?TH.T1:"#aaa",textAlign:"left",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span>{val||"탭하여 선택 (선택사항)"}</span>
-          <span style={{fontSize:12,color:"#aaa"}}>▾</span>
-        </button>
-      </div>
-    );
-  };
-  // Grape: region-aware multi-select chips + free input
-  const GGrape=()=>{
-    const sel=(gval("grape")||"").split(",").map(s=>s.trim()).filter(Boolean);
-    const toggle=(g)=>{
-      const next=sel.includes(g)?sel.filter(x=>x!==g):[...sel,g];
-      updateGuess("grape",next.join(", "));
-    };
-    const showAll=grapeShowAll, setShowAll=setGrapeShowAll;
-    const region=gval("region");
-    const regionGrapes=REGION_GRAPES[region]||null;
-    const Chip=({g})=>(
-      <button onClick={()=>toggle(g)} style={{padding:"5px 10px",border:`1px solid ${sel.includes(g)?RED:"#ddd"}`,borderRadius:16,fontSize:12,fontWeight:sel.includes(g)?700:400,background:sel.includes(g)?RED:"#fff",color:sel.includes(g)?"#fff":"#666",cursor:"pointer",marginBottom:4}}>{g}</button>
-    );
-    return (
-      <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>품종 <span style={{fontWeight:400,color:TH.T3}}>(복수 선택 — 블렌드)</span></div>
-        {sel.length>0&&<div style={{fontSize:12,color:RED,fontWeight:600,marginBottom:6}}>선택: {sel.join(", ")}</div>}
-        {/* Region-recommended grapes first */}
-        {regionGrapes&&!showAll&&(
-          <div>
-            <div style={{fontSize:10,color:GOLD,fontWeight:600,margin:"4px 0 3px"}}>⭐ {region} 대표 품종</div>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{regionGrapes.map(g=><Chip key={g} g={g}/>)}</div>
-          </div>
-        )}
-        {(!regionGrapes||showAll)&&(
-          <div>
-            <div style={{fontSize:10,color:TH.T3,margin:"4px 0 3px"}}>🍷 레드</div>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.red.slice(0,showAll?99:8).map(g=><Chip key={g} g={g}/>)}</div>
-            <div style={{fontSize:10,color:TH.T3,margin:"6px 0 3px"}}>🥂 화이트</div>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.white.slice(0,showAll?99:8).map(g=><Chip key={g} g={g}/>)}</div>
-          </div>
-        )}
-        <div style={{display:"flex",gap:8,marginTop:6,alignItems:"center"}}>
-          <button onClick={()=>setShowAll(v=>!v)} style={{background:"none",border:"none",color:TH.T3,fontSize:11,cursor:"pointer",padding:0,textDecoration:"underline"}}>{showAll?"접기":(regionGrapes?"전체 품종 보기":"더 많은 품종")}</button>
-          <input list="dl-grapes" placeholder="직접 입력 후 Enter" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){toggle(e.target.value.trim());e.target.value="";}}}
-            style={{flex:1,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"5px 8px",fontSize:12,outline:"none",minWidth:0}}/>
-          <datalist id="dl-grapes">{GRAPE_LIST.map(g=><option key={g} value={g}/>)}</datalist>
-        </div>
-      </div>
-    );
-  };
-  // Plain field (vintage)
-  const G = ({label,field,ph})=>(
-    <div style={{marginBottom:10}}>
-      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>{label}</div>
-      <input value={gval(field)} onChange={e=>updateGuess(field,e.target.value)} placeholder={ph} style={IST}/>
-    </div>
-  );
-
-  // ── 정답 입력 컴포넌트 팩토리 (출제자용 — 참가자 추측과 동일 UX) ────
-  const makeAnswerComponents = (wno) => {
-    const ans = cur?.answers?.[wno] || {};
-    const upd = (field, val) => updateAnswer(wno, field, val);
-    const ISTA = {width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",boxSizing:"border-box"};
-
-    const ACountry = () => (
-      <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>국가</div>
-        <select value={ans.country||""} onChange={e=>{upd("country",e.target.value);upd("region","");upd("subRegion","");}} style={{...ISTA,background:"#fff"}}>
-          <option value="">선택...</option>
-          {Object.keys(WINE_ORIGINS).map(cc=><option key={cc} value={cc}>{cc}</option>)}
-        </select>
-      </div>
-    );
-
-    const ARegion = () => {
-      const regions = WINE_ORIGINS[ans.country] ? Object.keys(WINE_ORIGINS[ans.country]) : [];
-      return (
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>지역</div>
-          <div style={{position:"relative"}}>
-            <input list={`dl-ans-r-${wno}`} value={ans.region||""} onChange={e=>{upd("region",e.target.value);upd("subRegion","");}}
-              placeholder={regions.length?"입력 또는 선택":"예: 부르고뉴"} style={{...ISTA,paddingRight:28}}/>
-            {regions.length>0&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>}
-            <datalist id={`dl-ans-r-${wno}`}>{regions.map(r=><option key={r} value={r}/>)}</datalist>
-          </div>
-        </div>
-      );
-    };
-
-    const AVillage = () => {
-      const villages = WINE_ORIGINS[ans.country]?.[ans.region]
-        || [...new Set(Object.values(WINE_ORIGINS).flatMap(rg=>Object.values(rg).flat()))];
-      return (
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>마을/아펠라시옹 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
-          <div style={{position:"relative"}}>
-            <input list={`dl-ans-v-${wno}`} value={ans.subRegion||""} onChange={e=>upd("subRegion",e.target.value)}
-              placeholder="입력하면 자동완성" style={{...ISTA,paddingRight:28}}/>
-            <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#aaa",pointerEvents:"none"}}>▾</span>
-            <datalist id={`dl-ans-v-${wno}`}>{[...new Set(villages)].map(v=><option key={v} value={v}/>)}</datalist>
-          </div>
-        </div>
-      );
-    };
-
-    const AClassification = () => {
-      const allCls = {regional:"레지오날",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
-    // 지역별 등급 라벨 재정의
-    const regionClassLabel = (key, region) => {
-      if(region==="보르도"||region==="보르도 외 산지") {
-        return {regional:"일반 AOP",village:"크뤼 부르주아",premiercru:"크뤼 클라쎄 (2-5등급)",grandcru:"그랑 크뤼 클라쎄",other:"기타"}[key]||key;
-      }
-      if(region==="리오하") {
-        return {regional:"Rioja",village:"크리안사",premiercru:"레세르바",grandcru:"그란 레세르바",other:"기타"}[key]||key;
-      }
-      return allCls[key]||key;
-    };
-      const allowed = REGION_CLASSES[ans.region] || DEFAULT_CLASSES;
-      return (
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>
-            등급{ans.region&&REGION_CLASSES[ans.region]&&<span style={{fontWeight:400,color:TH.T3,fontSize:10}}> · {ans.region} 체계</span>}
-          </div>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            {allowed.map(v=>(
-              <button key={v} onClick={()=>upd("classification",v==="other"?"기타":v)}
-                style={{padding:"6px 11px",border:`1px solid ${ans.classification===v?RED:"#ddd"}`,borderRadius:18,fontSize:12,fontWeight:ans.classification===v?700:400,background:ans.classification===v?RED:"#fff",color:ans.classification===v?"#fff":"#666",cursor:"pointer"}}>
-                {allCls[v]}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    };
-
-    const AGrape = () => {
-      const sel = (ans.grapeVariety||"").split(",").map(s=>s.trim()).filter(Boolean);
-      const toggle = (g) => {const next=sel.includes(g)?sel.filter(x=>x!==g):[...sel,g]; upd("grapeVariety",next.join(", "));};
-      const regionGrapes = REGION_GRAPES[ans.region] || null;
-      const Chip = ({g}) => (
-        <button onClick={()=>toggle(g)} style={{padding:"5px 10px",border:`1px solid ${sel.includes(g)?RED:"#ddd"}`,borderRadius:16,fontSize:12,fontWeight:sel.includes(g)?700:400,background:sel.includes(g)?RED:"#fff",color:sel.includes(g)?"#fff":"#666",cursor:"pointer",marginBottom:4}}>{g}</button>
-      );
-      return (
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>품종 <span style={{fontWeight:400,color:TH.T3}}>(복수 선택 가능)</span></div>
-          {sel.length>0&&<div style={{fontSize:12,color:RED,fontWeight:600,marginBottom:6}}>선택: {sel.join(", ")}</div>}
-          {regionGrapes
-            ? <><div style={{fontSize:10,color:GOLD,fontWeight:600,margin:"4px 0 3px"}}>⭐ {ans.region} 대표 품종</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{regionGrapes.map(g=><Chip key={g} g={g}/>)}</div></>
-            : <><div style={{fontSize:10,color:TH.T3,margin:"4px 0 3px"}}>🍷 레드</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.red.slice(0,8).map(g=><Chip key={g} g={g}/>)}</div><div style={{fontSize:10,color:TH.T3,margin:"6px 0 3px"}}>🥂 화이트</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{GRAPE_CATEGORIES.white.slice(0,8).map(g=><Chip key={g} g={g}/>)}</div></>
-          }
-          <input list={`dl-ans-g-${wno}`} placeholder="직접 입력 후 Enter"
-            onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){toggle(e.target.value.trim());e.target.value="";}}}
-            style={{...ISTA,marginTop:6}}/>
-          <datalist id={`dl-ans-g-${wno}`}>{GRAPE_LIST.map(g=><option key={g} value={g}/>)}</datalist>
-        </div>
-      );
-    };
-
-    const AVintage = () => (
-      <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지</div>
-        <input type="number" min="1900" max="2030" value={ans.vintage||""} onChange={e=>upd("vintage",e.target.value)}
-          placeholder="예: 2019" style={{...ISTA,width:120}}/>
-      </div>
-    );
-
-    return {ACountry,ARegion,AVillage,AClassification,AGrape,AVintage};
-  };
-
   // ════ PIN 입력 화면 (호스트 인증) ════
   if(!isHost && !joinCode && view==="list") {
     return (
@@ -2020,24 +1851,26 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           <div style={CS}>
             <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:12}}>{cur.partyMode?"🎉 내 픽":"🔍 추론"}</div>
             {/* 공통: 국가 + 지역 */}
-            {GCountry()}
-            {GRegion()}
+            <GCountry country={gval("country")} onChange={updateGuess} TH={TH} IST={IST} />
+            {(!ans.depth||ans.depth==="region"||ans.depth==="village")&&(
+              <GRegion country={gval("country")} region={gval("region")} onChange={updateGuess} TH={TH} IST={IST} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />
+            )}
             {cur.partyMode ? (
               /* ── Party 모드: 품종 + 빈티지만 ── */
               <>
-                {GGrape()}
+                <GGrape grape={gval("grape")} region={gval("region")} onChange={updateGuess} TH={TH} />
                 <div style={{marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지 추정</div>
                   <input value={gval("vintage")} onChange={e=>updateGuess("vintage",e.target.value)}
-                    placeholder="예: 2019" style={{...IST,width:120}}/>
+                    type="number" inputMode="numeric" min="1900" max="2030" placeholder="예: 2019" style={{...IST,width:120}}/>
                 </div>
               </>
             ) : (
               /* ── Expert 모드: 전체 항목 ── */
               <>
-                {GVillage()}
-                {/* Classification */}
-                <div style={{marginBottom:10}}>
+                {/* 마을·등급: depth="village"일 때만 표시 */}
+                {(!ans.depth||ans.depth==="village")&&<GVillage country={gval("country")} region={gval("region")} village={gval("village")} onChange={updateGuess} TH={TH} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />}
+                {(!ans.depth||ans.depth==="village")&&<div style={{marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>등급{gval("region")&&REGION_CLASSES[gval("region")]&&<span style={{fontWeight:400,color:TH.T3,fontSize:10}}> · {gval("region")} 체계</span>}</div>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                     {(()=>{
@@ -2057,12 +1890,12 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                       );
                     })}
                   </div>
-                </div>
-                {GGrape()}
+                </div>}
+                <GGrape grape={gval("grape")} region={gval("region")} onChange={updateGuess} TH={TH} />
                 <div style={{marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지 추정</div>
                   <input value={gval("vintage")} onChange={e=>updateGuess("vintage",e.target.value)}
-                    placeholder="예: 2018~2020 또는 2019" style={IST}/>
+                    type="number" inputMode="numeric" min="1900" max="2030" placeholder="예: 2019" style={IST}/>
                 </div>
                 <div style={{marginBottom:0}}>
                   <div style={{fontSize:11,fontWeight:600,color:RED,marginBottom:4}}>💭 이렇게 픽한 이유 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
@@ -2693,88 +2526,76 @@ function App() {
     })();
   }, []);
 
-  async function runQualEval(active, onSaveSessions) {
-    // ── 사전 검사 ──────────────────────────────────────────────
-    if (!geminiKey) {
-      toast("⚙️ Gemini API 키를 먼저 설정해주세요", "error"); return null;
-    }
-    const qr = active?.rubric?.qualRatio || 0;
-    if (qr === 0) {
-      toast("세션 설정에서 AI 정성 평가 비율을 설정해주세요", "warn"); return null;
-    }
-    // 평가 대상이 있는지 확인 (이유 텍스트 작성 여부)
-    let evalTargets = 0;
-    for (let i = 0; i < active.wineCount; i++) {
-      const wno = i + 1;
-      const ans = active.answers[wno] || {};
-      for (const p of active.participants) {
-        if (ans.bringer === p) continue;
-        const g = active.guesses[p]?.[wno] || {};
-        const hasVillage = (g.village||"").trim() && (ans.subRegion||"").trim();
-        const hasReason  = g.reason?.trim();
-        if (hasVillage || hasReason) evalTargets++;
-      }
-    }
-    if (evalTargets === 0) {
-      toast("평가할 내용이 없습니다 — 참가자 추론 또는 마을 항목 입력 필요", "warn"); return null;
-    }
-    // ── 실행 ──────────────────────────────────────────────────
+  async function runQualEval() {
+    if(!geminiKey){ toast("⚙️ Gemini API 키를 먼저 설정해주세요","error"); return null; }
+    const qr=active?.rubric?.qualRatio||0;
+    if(qr===0){ toast("세션 설정에서 AI 정성 평가 비율을 설정해주세요","warn"); return null; }
+
     setQualLoading(true);
     try {
-      const updated = {...active, guesses: JSON.parse(JSON.stringify(active.guesses||{}))};
-      // 배치 처리: 와인 1병당 1회 API 호출 (16회→4회)
-      for (let i = 0; i < active.wineCount; i++) {
-        const wno = i + 1;
-        const ans = active.answers[wno] || {};
-        if (!(ans.region || ans.grapeVariety)) continue;
+      const updated={...active, guesses:JSON.parse(JSON.stringify(active.guesses||{}))};
+      let totalEvaluated=0;
 
-        // 이 와인에 대해 평가 대상 참가자 수집
-        const batchTargets = active.participants
-          .filter(p => ans.bringer !== p)
-          .map(p => {
-            const g = active.guesses[p]?.[wno] || {};
-            return { name:p, village:(g.village||"").trim(), reason:(g.reason||"").trim(), g };
-          })
-          .filter(t => t.village || t.reason);
+      for(let i=0; i<active.wineCount; i++){
+        const wno=i+1;
+        const ans=active.answers[wno]||{};
+        if(!(ans.region||ans.grapeVariety)) continue;
 
-        if (batchTargets.length === 0) continue;
-
-        console.log(`[AI채점] 와인 #${wno} — ${batchTargets.length}명 배치 평가`);
-        const results = await callGeminiForBatchWines(geminiKey, ans, batchTargets);
-
-        if (results) {
-          Object.entries(results).forEach(([pName, res]) => {
-            if (!res) return;
-            const patch = {...(updated.guesses[pName]?.[wno]||{})};
-            if (res.village_level) {
-              patch.villageAILevel = res.village_level;
-              patch.villageNote    = res.village_note || "";
-            }
-            if (res.aroma != null) {
-              const a = Math.max(0,Math.min(8,  res.aroma    ||0));
-              const s = Math.max(0,Math.min(12, res.structure||0));
-              const l = Math.max(0,Math.min(10, res.logic    ||0));
-              patch.aroma = a; patch.structure = s; patch.logic = l;
-              patch.qualScore    = Math.round((a+s+l)/QUAL_MAX*100);
-              patch.qualFeedback = res.feedback || "";
-            }
-            if (!updated.guesses[pName]) updated.guesses[pName] = {};
-            updated.guesses[pName][wno] = patch;
-          });
+        // 이 와인에 대해 평가받을 참가자 묶기
+        const batchTargets=[];
+        for(const p of active.participants){
+          if(ans.bringer===p) continue;
+          const g=active.guesses[p]?.[wno]||{};
+          if((g.village||"").trim()||g.reason?.trim()){
+            batchTargets.push({...g, participantName:p});
+          }
         }
-        // 와인 간 1.5초 딜레이 (429 방지, 분당 15RPM 여유)
-        if (i < active.wineCount - 1) await new Promise(r => setTimeout(r, 1500));
+        if(batchTargets.length===0) continue;
+
+        // 와인 1병 × 전 참가자 → API 1회 호출
+        const batchResult=await callGeminiForBatchWines(geminiKey, ans, batchTargets);
+        totalEvaluated++;
+
+        if(batchResult){
+          for(const p of batchTargets.map(t=>t.participantName)){
+            const res=batchResult[p];
+            if(!res) continue;
+            const patch={...(updated.guesses[p]?.[wno]||{})};
+            if(res.village_level){
+              patch.villageAILevel=res.village_level;
+              patch.villageNote=res.village_note||"";
+            }
+            if(res.aroma!==undefined){
+              const a=Math.max(0,Math.min(8,res.aroma));
+              const s=Math.max(0,Math.min(12,res.structure));
+              const l=Math.max(0,Math.min(10,res.logic));
+              patch.aroma=a; patch.structure=s; patch.logic=l;
+              patch.qualScore=Math.round((a+s+l)/QUAL_MAX*100);
+              patch.qualFeedback=res.feedback||"";
+            }
+            if(!updated.guesses[p]) updated.guesses[p]={};
+            updated.guesses[p][wno]=patch;
+          }
+        }
+        // 와인 간 2초 대기 (무료 15 RPM 안전장치)
+        if(i<active.wineCount-1) await new Promise(r=>setTimeout(r,2000));
       }
-      onSaveSessions([updated, ...sessions.filter(s => s.id !== updated.id)]);
+
+      if(totalEvaluated===0){
+        toast("평가할 내용이 없습니다 — 참가자 추론 입력 필요","warn");
+        return null;
+      }
+      onSaveSessions([updated,...sessions.filter(s=>s.id!==updated.id)]);
+      setActive(updated);
+      toast("✅ AI 채점이 완료되었습니다!","info");
       return updated;
-    } catch(err) {
-      toast("AI 채점 오류: " + err.message, "error", 5000);
+    } catch(err){
+      toast("AI 채점 오류: "+err.message,"error",5000);
       return null;
     } finally {
-      setQualLoading(false); // 항상 로딩 해제
+      setQualLoading(false);
     }
   }
-
 
   function saveGroups(arr) {
     setGroups(arr);
@@ -2792,6 +2613,22 @@ function App() {
   }
 
   if (!ready) {
+    // 초대 링크로 들어온 참가자는 로딩 없이 바로 참여 화면으로
+    const joinParam = new URLSearchParams(window.location.search).get("join");
+    if (joinParam) {
+      return (
+        <BlindTastingPage
+          sessions={sessions}
+          onSaveSessions={(arr) => {
+            setSessions(arr);
+            try { window.storage.set(SESSIONS_KEY, JSON.stringify(arr)); } catch(e) {}
+          }}
+          groups={groups} onSaveGroups={saveGroups}
+          tasters={tasters} onSaveTasters={saveTasters}
+          initialView="join" initialJoinCode={joinParam}
+        />
+      );
+    }
     return (
       <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:TH.T3}}>
         🍷 불러오는 중...
