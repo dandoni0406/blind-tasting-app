@@ -534,7 +534,7 @@ function BottomSheet({ config, search, onSearch, onSelect, onClose }) {
 }
 
 // ── Blind Tasting Session (모임용) ────────────────────────────────
-function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, onBack, tasters, geminiKey, setGeminiKey, runQualEval, qualLoading, initialView, initialJoinCode }) {
+function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, onBack, tasters, geminiKey, setGeminiKey, initialView, initialJoinCode }) {
   const [view, setView] = useState(initialView||"list");
   const [joinCode, setJoinCode] = useState(() => {
     if (initialJoinCode) return initialJoinCode;
@@ -592,6 +592,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   }); // "all"|"none"|groupId
   const GROUP_COLORS = ["#8B2635","#2E7D32","#1E6FA0","#7a5c10","#6B21A8","#C0392B"];
   const [active, setActive] = useState(null);
+  const [qualLoading, setQualLoading] = useState(false);
   const [wineIdx, setWineIdx] = useState(0);
   const [pIdx, setPIdx] = useState(0);
 
@@ -2722,7 +2723,6 @@ function App() {
   const [tasters, setTasters] = useState(["나"]);
   const [ready, setReady] = useState(false);
   const [geminiKey, setGeminiKey] = useState("");
-  const [qualLoading, setQualLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -2803,8 +2803,6 @@ function App() {
       tasters={tasters}
       geminiKey={geminiKey}
       setGeminiKey={setGeminiKey}
-      runQualEval={runQualEval}
-      qualLoading={qualLoading}
     />
     </ErrorBoundary>
   );
