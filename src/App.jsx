@@ -2000,7 +2000,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:12}}>{cur.partyMode?"🎉 내 픽":"🔍 추론"}</div>
             {/* 공통: 국가 + 지역 */}
             <GCountry country={gval("country")} onChange={updateGuess} TH={TH} IST={IST} />
-            {(!ans.depth||ans.depth==="region"||ans.depth==="village")&&(
+            {(!(cur.answers[wno_]||{}).depth||(cur.answers[wno_]||{}).depth==="region"||(cur.answers[wno_]||{}).depth==="village")&&(
               <GRegion country={gval("country")} region={gval("region")} onChange={updateGuess} TH={TH} IST={IST} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />
             )}
             {cur.partyMode ? (
@@ -2017,8 +2017,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               /* ── Expert 모드: 전체 항목 ── */
               <>
                 {/* 마을·등급: depth="village"일 때만 표시 */}
-                {(!ans.depth||ans.depth==="village")&&<GVillage country={gval("country")} region={gval("region")} village={gval("village")} onChange={updateGuess} TH={TH} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />}
-                {(!ans.depth||ans.depth==="village")&&<div style={{marginBottom:10}}>
+                {(!(cur.answers[wno_]||{}).depth||(cur.answers[wno_]||{}).depth==="village")&&<GVillage country={gval("country")} region={gval("region")} village={gval("village")} onChange={updateGuess} TH={TH} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />}
+                {(!(cur.answers[wno_]||{}).depth||(cur.answers[wno_]||{}).depth==="village")&&<div style={{marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>등급{gval("region")&&REGION_CLASSES[gval("region")]&&<span style={{fontWeight:400,color:TH.T3,fontSize:10}}> · {gval("region")} 체계</span>}</div>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                     {(()=>{
