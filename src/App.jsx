@@ -455,6 +455,30 @@ function GGrape({ grape, region, onChange, TH }) {
   );
 }
 
+// ── 에러 경계 (모바일 에러 화면에 표시) ─────────────────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = {error:null}; }
+  static getDerivedStateFromError(e) { return {error:e}; }
+  componentDidCatch(e, info) { console.error("RENDER ERROR:", e, info); }
+  render() {
+    if(this.state.error) {
+      return (
+        <div style={{padding:24,fontFamily:"monospace",background:"#fff",minHeight:"100vh"}}>
+          <div style={{color:"red",fontWeight:700,fontSize:16,marginBottom:12}}>⚠️ 렌더링 에러 (개발자용)</div>
+          <div style={{background:"#f5f5f5",padding:12,borderRadius:8,fontSize:12,wordBreak:"break-all",marginBottom:12}}>
+            {this.state.error.toString()}
+          </div>
+          <button onClick={()=>this.setState({error:null})}
+            style={{padding:"8px 16px",background:"#8B2635",color:"#fff",border:"none",borderRadius:8,cursor:"pointer"}}>
+            재시도
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── 바텀시트 선택기 ───────────────────────────────────────────────
 function BottomSheet({ config, search, onSearch, onSelect, onClose }) {
   if (!config) return null;
@@ -2761,6 +2785,7 @@ function App() {
   }
 
   return (
+    <ErrorBoundary>
     <BlindTastingPage
       sessions={sessions}
       onSaveSessions={(arr) => {
@@ -2779,6 +2804,7 @@ function App() {
       runQualEval={runQualEval}
       qualLoading={qualLoading}
     />
+    </ErrorBoundary>
   );
 }
 
