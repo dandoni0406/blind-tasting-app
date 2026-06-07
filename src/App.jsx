@@ -281,10 +281,24 @@ const DEPTH_FIELDS = {
   village: ["country","region","village"],
   full:    ["country","region","village","classification","grape","vintage"],
 };
-function scoreGuessVsAnswer(g, ans, rubric, depth, villageOverride){
+// ── 참가자 레벨 정의 ─────────────────────────────────────────────
+const PARTICIPANT_LEVELS = {
+  expert:   { label:"🎯 Expert",   fields:["country","region","village","classification","grape","vintage"], vintageTol:1 },
+  standard: { label:"🍷 Standard", fields:["country","region","grape","vintage"],                           vintageTol:1 },
+  beginner: { label:"🌱 Beginner", fields:["country","grape","vintage"],                                    vintageTol:2 },
+};
+const LEVEL_WEIGHTS = {
+  expert:   {country:1, region:1.5, village:2,   classification:2,   grape:1.5, vintage:1},
+  standard: {country:1, region:1.5, village:0,   classification:0,   grape:1.5, vintage:1},
+  beginner: {country:1, region:0,   village:0,   classification:0,   grape:1.5, vintage:1},
+};
+
+function scoreGuessVsAnswer(g, ans, rubric, depth, villageOverride, level){
   const R = rubric || DEFAULT_RUBRIC;
-  const W = R.weights || DEFAULT_RUBRIC.weights;
+  // 레벨 가중치 우선 적용 (참가자별 레벨)
+  const W = (level && LEVEL_WEIGHTS[level]) ? LEVEL_WEIGHTS[level] : (R.weights || DEFAULT_RUBRIC.weights);
   const cr = R.closeRatio ?? 0.5;
+  const vintageTol = (level && PARTICIPANT_LEVELS[level]) ? PARTICIPANT_LEVELS[level].vintageTol : (R.vintageTol ?? 2);
   const tol = R.vintageTol ?? 2;
   const fields = {
     country: levelField(g.country, ans.country),
@@ -683,7 +697,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [sCount, setSCount] = useState(4);
   const [sParts, setSParts] = useState(tasters.filter(Boolean));
   const [sGroupId, setSGroupId] = useState(null);
-  const [sPartyMode, setSPartyMode] = useState(false); // null = 단독
+  const [sLevels, setSLevels] = useState({}); // {참가자명: "expert"|"standard"|"beginner"}
   const [sAnswerMode, setSAnswerMode] = useState("prefill"); // prefill | reveal
   const [sRubric, setSRubric] = useState(JSON.parse(JSON.stringify(DEFAULT_RUBRIC)));
 
@@ -698,7 +712,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       id:String(Date.now()), name:sName||"블라인드 테이스팅",
       date:new Date().toISOString(), participants:parts, wineCount:sCount,
       accessCode:genCode(),
-      groupId:sGroupId, partyMode:sPartyMode, answerMode:sAnswerMode, rubric:sRubric,
+      groupId:sGroupId, participantLevels:sLevels, answerMode:sAnswerMode, rubric:sRubric,
       guesses:{}, answers:{}, revealed:false, answersLocked:false, createdAt:new Date().toISOString(),
     };
     parts.forEach(p=>{s.guesses[p]={};});
@@ -1240,7 +1254,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           const g=s.guesses?.[participant]?.[wno]||{};
           if(!(g.country||g.region||g.grape||g.vintage||g.village)) continue;
 
-          const sc=scoreGuessVsAnswer(g,ans,s.rubric,ans.depth,g.villageAILevel);
+          const sc=scoreGuessVsAnswer(g,ans,s.rubric,ans.depth,g.villageAILevel,(s.participantLevels||{})[participant]);
           const adj=g.adjust||0;
           const qr=s.rubric?.qualRatio||0;
           const quantPct=Math.max(0,Math.min(100,sc.pct+adj));
@@ -1585,6 +1599,13 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               <div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
                 <input value={p} onChange={e=>{const a=[...sParts];a[i]=e.target.value;setSParts(a);}}
                   placeholder="이름" style={{flex:1,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none"}}/>
+                <select value={sLevels[p]||"expert"}
+                  onChange={e=>setSLevels(prev=>({...prev,[p]:e.target.value}))}
+                  style={{border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 6px",fontSize:11,background:TH.CARD,color:TH.T1,cursor:"pointer"}}>
+                  {Object.entries(PARTICIPANT_LEVELS).map(([k,v])=>(
+                    <option key={k} value={k}>{v.label}</option>
+                  ))}
+                </select>
                 <button onClick={()=>setSParts(sParts.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:TH.T3,fontSize:16,cursor:"pointer"}}>×</button>
               </div>
             ))}
@@ -1607,20 +1628,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 <div style={{fontSize:11,color:TH.T2,lineHeight:1.4}}>여러 출제자 모임 (정답 비공개)</div>
               </button>
             </div>
-            {/* 모임 스타일 — 2열 그리드 */}
-            <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:8}}>모임 스타일</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-              <button onClick={()=>setSPartyMode(false)}
-                style={{padding:"12px 10px",border:`2px solid ${!sPartyMode?RED:"#ddd"}`,borderRadius:12,background:!sPartyMode?"#FDF1F2":TH.CARD,cursor:"pointer",textAlign:"left"}}>
-                <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>🎯 Expert</div>
-                <div style={{fontSize:11,color:TH.T2,lineHeight:1.4}}>6 fields · AI scoring · detailed</div>
-              </button>
-              <button onClick={()=>setSPartyMode(true)}
-                style={{padding:"12px 10px",border:`2px solid ${sPartyMode?"#D97706":"#ddd"}`,borderRadius:12,background:sPartyMode?"#FEF3C7":TH.CARD,cursor:"pointer",textAlign:"left"}}>
-                <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>🎉 Party</div>
-                <div style={{fontSize:11,color:TH.T2,lineHeight:1.4}}>4 fields · emoji results · casual</div>
-              </button>
-            </div>
+
             {sAnswerMode==="prefill" && (
               <div style={{background:"#F0F7FF",borderRadius:8,padding:"9px 11px",marginTop:6,fontSize:11,color:"#1E40AF",lineHeight:1.5}}>
                 💡 한 명이 모든 정답을 미리 입력합니다. <b>혼자 연습</b>하거나, 한 사람이 정답을 도맡아 관리할 때 적합해요. (이 화면에서 정답이 다 보이므로 여러 출제자가 서로 숨겨야 하는 모임엔 부적합)
@@ -1722,7 +1730,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
       <div style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>국가</div>
         <select value={ans.country||""} onChange={e=>{upd("country",e.target.value);upd("region","");upd("subRegion","");}}
-          style={{...ISTA,background:"#fff"}}>
+          style={{...ISTA,background:"#fff",color:ans.country?TH.T1:"#888"}}>
           <option value="">선택...</option>
           {Object.keys(WINE_ORIGINS).map(co=><option key={co} value={co}>{co}</option>)}
         </select>
@@ -1877,9 +1885,27 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                           if(result.country) updateAnswer(wno,"country",result.country);
                           if(result.region) updateAnswer(wno,"region",result.region);
                           if(result.subRegion) updateAnswer(wno,"subRegion",result.subRegion);
-                          if(result.grapeVariety) updateAnswer(wno,"grapeVariety",result.grapeVariety);
-                          if(result.vintage) updateAnswer(wno,"vintage",result.vintage);
-                          if(result.classification) updateAnswer(wno,"classification",result.classification);
+                          if(result.grapeVariety){
+                            // 품종명을 칩 이름과 매칭 (공백 제거 + 영문 매핑)
+                            const allChips=[...GRAPE_CATEGORIES.red,...GRAPE_CATEGORIES.white];
+                            const engMap={"cabernet sauvignon":"카베르네소비뇽","pinot noir":"피노누아","merlot":"메를로","syrah":"시라/쉬라즈","shiraz":"시라/쉬라즈","nebbiolo":"네비올로","sangiovese":"산지오베제","tempranillo":"템프라니요","malbec":"말벡","grenache":"그르나슈","chardonnay":"샤르도네","sauvignon blanc":"소비뇽블랑","riesling":"리슬링","pinot grigio":"피노그리지오","pinot gris":"피노그리지오","chenin blanc":"슈냉블랑","viognier":"비오니에","semillon":"세미용"};
+                            const matched=result.grapeVariety.split(/[,،]/).map(g=>{
+                              const t=g.trim(); const tl=t.toLowerCase();
+                              if(engMap[tl]) return engMap[tl];
+                              const noSpace=t.replace(/\s/g,"");
+                              const found=allChips.find(ch=>ch===noSpace||ch.replace(/[/]/g,"")===noSpace);
+                              return found||t;
+                            }).filter(Boolean);
+                            updateAnswer(wno,"grapeVariety",matched.join(", "));
+                          }
+                          if(result.vintage) updateAnswer(wno,"vintage",String(result.vintage||"").replace(/[^0-9]/g,""));
+                          // 등급 정규화: Gemini 반환값 → 코드 키로 변환
+                          if(result.classification){
+                            const raw=result.classification.toLowerCase().replace(/\s/g,"");
+                            const clsMap={"그랑크뤼":"grandcru","grandcru":"grandcru","premiercru":"premiercru","1ercru":"premiercru","프르미에":"premiercru","빌라주":"village","레지오날":"regional","크뤼부르주아":"village","crubourgeois":"village","크뤼클라쎄":"premiercru","cruclasse":"premiercru","그랑크뤼클라쎄":"grandcru","grandcruclasse":"grandcru","프리미에그랑크뤼클라쎄":"grandcru","doc":"regional","docg":"grandcru","docga":"grandcru","igt":"other","aoc":"regional","aop":"regional","리오하":"regional","크리안사":"village","crianza":"village","레세르바":"premiercru","reserva":"premiercru","그란레세르바":"grandcru","granreserva":"grandcru"};
+                            const normalized=clsMap[raw]||result.classification;
+                            updateAnswer(wno,"classification",normalized);
+                          }
                           toast("✅ 라벨 스캔 완료! 확인 후 수정하세요","info",4000);
                         }
                         setScanningWno(null);
@@ -1998,62 +2024,54 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           )}
           {!isBringer && (
           <div style={CS}>
-            <div style={{fontSize:13,fontWeight:700,color:TH.T2,marginBottom:12}}>{cur.partyMode?"🎉 내 픽":"🔍 추론"}</div>
-            {/* 공통: 국가 + 지역 */}
+            {/* 참가자 레벨 배지 */}
+            {(()=>{ const lv=(cur.participantLevels||{})[p_]||"expert"; return (
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                <div style={{fontSize:13,fontWeight:700,color:TH.T2}}>🔍 추론</div>
+                <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:lv==="beginner"?"#DCFCE7":lv==="standard"?"#FEF3C7":"#FDF1F2",color:lv==="beginner"?"#166534":lv==="standard"?"#92400E":RED,fontWeight:600}}>
+                  {PARTICIPANT_LEVELS[lv]?.label||"🎯 Expert"}
+                </span>
+              </div>
+            ); })()}
+            {/* 공통: 국가 */}
             <GCountry country={gval("country")} onChange={updateGuess} TH={TH} IST={IST} />
-            {(!(cur.answers[wno_]||{}).depth||(cur.answers[wno_]||{}).depth==="region"||(cur.answers[wno_]||{}).depth==="village")&&(
-              <GRegion country={gval("country")} region={gval("region")} onChange={updateGuess} TH={TH} IST={IST} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />
-            )}
-            {cur.partyMode ? (
-              /* ── Party 모드: 품종 + 빈티지만 ── */
-              <>
+            {/* 레벨별 필드 표시 */}
+            {(()=>{
+              const lv=(cur.participantLevels||{})[p_]||"expert";
+              const fields=PARTICIPANT_LEVELS[lv]?.fields||PARTICIPANT_LEVELS.expert.fields;
+              const depthAns=cur.answers[wno_]||{};
+              const showRegion=fields.includes("region")&&(!depthAns.depth||depthAns.depth==="region"||depthAns.depth==="village");
+              const showVillage=fields.includes("village")&&(!depthAns.depth||depthAns.depth==="village");
+              return (<>
+                {showRegion&&<GRegion country={gval("country")} region={gval("region")} onChange={updateGuess} TH={TH} IST={IST} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />}
+                {showVillage&&<GVillage country={gval("country")} region={gval("region")} village={gval("village")} onChange={updateGuess} TH={TH} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />}
+                {showVillage&&(
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>등급</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {(()=>{const r=gval("region");const al=REGION_CLASSES[r]||DEFAULT_CLASSES;const bl={regional:"레지오날",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};const bx={regional:"일반 AOP",village:"크뤼 부르주아",premiercru:"크뤼 클라쎄",grandcru:"그랑 크뤼 클라쎄",other:"기타"};const rj={regional:"Rioja",village:"크리안사",premiercru:"레세르바",grandcru:"그란 레세르바",other:"기타"};const lm=r==="보르도"?bx:r==="리오하"?rj:bl;return al.map(v=>[v,lm[v]||v]);})().map(([v,l])=>(
+                        <button key={v} onClick={()=>updateGuess("classification",v==="other"?"기타":v)}
+                          style={{padding:"6px 12px",border:`1px solid ${gval("classification")===v?RED:TH.BD}`,borderRadius:18,fontSize:13,fontWeight:gval("classification")===v?700:400,background:gval("classification")===v?RED:TH.CARD,color:gval("classification")===v?"#fff":TH.T2,cursor:"pointer"}}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <GGrape grape={gval("grape")} region={gval("region")} onChange={updateGuess} TH={TH} />
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지 추정</div>
+                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지 추정
+                    <span style={{fontWeight:400,color:TH.T3,fontSize:10}}> (±{PARTICIPANT_LEVELS[lv]?.vintageTol||1}년)</span>
+                  </div>
                   <input value={gval("vintage")} onChange={e=>updateGuess("vintage",e.target.value)}
                     type="number" inputMode="numeric" min="1900" max="2030" placeholder="예: 2019" style={{...IST,width:120}}/>
                 </div>
-              </>
-            ) : (
-              /* ── Expert 모드: 전체 항목 ── */
-              <>
-                {/* 마을·등급: depth="village"일 때만 표시 */}
-                {(!(cur.answers[wno_]||{}).depth||(cur.answers[wno_]||{}).depth==="village")&&<GVillage country={gval("country")} region={gval("region")} village={gval("village")} onChange={updateGuess} TH={TH} setBottomSheet={setBottomSheet} setBsSearch={setBsSearch} />}
-                {(!(cur.answers[wno_]||{}).depth||(cur.answers[wno_]||{}).depth==="village")&&<div style={{marginBottom:10}}>
-                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>등급{gval("region")&&REGION_CLASSES[gval("region")]&&<span style={{fontWeight:400,color:TH.T3,fontSize:10}}> · {gval("region")} 체계</span>}</div>
-                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                    {(()=>{
-                      const region=gval("region");
-                      const allowed=REGION_CLASSES[region]||DEFAULT_CLASSES;
-                      const baseLabels={regional:"레지오날",village:"빌라주",premiercru:"1er Cru",grandcru:"그랑크뤼",other:"기타"};
-                      const bordeauxLabels={regional:"일반 AOP",village:"크뤼 부르주아",premiercru:"크뤼 클라쎄",grandcru:"그랑 크뤼 클라쎄",other:"기타"};
-                      const riojaLabels={regional:"Rioja",village:"크리안사",premiercru:"레세르바",grandcru:"그란 레세르바",other:"기타"};
-                      const lblMap=region==="보르도"?bordeauxLabels:region==="리오하"?riojaLabels:baseLabels;
-                      return allowed.map(v=>[v,lblMap[v]||v]);
-                    })().map(([v,l])=>{
-                      const cur_v=cur.guesses[p_]?.[wno_]?.classification||"";
-                      const sel=cur_v===v||(v==="other"&&cur_v&&!["regional","village","premiercru","grandcru"].includes(cur_v));
-                      return (
-                        <button key={v} onClick={()=>updateGuess("classification",v==="other"?"기타":v)}
-                          style={{padding:"6px 11px",border:`1px solid ${sel?RED:TH.BD}`,borderRadius:18,fontSize:12,fontWeight:sel?700:400,background:sel?RED:TH.CARD,color:sel?"#fff":TH.T2,cursor:"pointer"}}>{l}</button>
-                      );
-                    })}
-                  </div>
-                </div>}
-                <GGrape grape={gval("grape")} region={gval("region")} onChange={updateGuess} TH={TH} />
-                <div style={{marginBottom:10}}>
-                  <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>빈티지 추정</div>
-                  <input value={gval("vintage")} onChange={e=>updateGuess("vintage",e.target.value)}
-                    type="number" inputMode="numeric" min="1900" max="2030" placeholder="예: 2019" style={IST}/>
-                </div>
                 <div style={{marginBottom:0}}>
                   <div style={{fontSize:11,fontWeight:600,color:RED,marginBottom:4}}>💭 이렇게 픽한 이유 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
-                  <textarea value={cur.guesses[p]?.[wno]?.reason||""} onChange={e=>updateGuess("reason",e.target.value)}
+                  <textarea value={cur.guesses[p_]?.[wno_]?.reason||""} onChange={e=>updateGuess("reason",e.target.value)}
                     placeholder="예: 높은 산도와 미네랄, 환원 뉘앙스 → 부르고뉴 샤르도네"
                     rows={3} style={{width:"100%",border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:12,outline:"none",resize:"vertical",boxSizing:"border-box",background:TH.INP,color:TH.T1}}/>
                 </div>
-              </>
-            )}
+              </>);
+            })()}
           </div>
           )}
 
@@ -2163,207 +2181,6 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
     );
   }
 
-
-  // ── Party 모드 결과 화면 ────────────────────────────────────────
-  if(view==="summary"&&cur&&cur.partyMode) {
-    const emojiScore = (lvl) => lvl==="exact"?"⭕":lvl==="close"?"△":"✕";
-    const funMsg = (hits, total) => {
-      const r = hits/total;
-      if(r===1)  return "🏆 퍼펙트!";
-      if(r>=0.75) return "🎉 거의 다 맞혔어요!";
-      if(r>=0.5)  return "🍷 꽤 잘했어요!";
-      if(r>=0.25) return "😄 감이 잡혀가네요!";
-      return "😂 와인이 너무 어려워!";
-    };
-    // Compute party scores (country/region/grape/vintage only)
-    const partyScores = {};
-    for(const p of cur.participants) {
-      partyScores[p] = {total:0, hits:0, wines:[]};
-      for(let i=0;i<cur.wineCount;i++) {
-        const wno=i+1, ans=cur.answers?.[wno]||{};
-        if(ans.bringer===p) continue;
-        const g=cur.guesses?.[p]?.[wno]||{};
-        if(!(g.country||g.region||g.grape||g.vintage)) continue;
-        const fields = [
-          {label:"국가", lvl:levelField(g.country,ans.country)},
-          {label:"지역", lvl:levelField(g.region,ans.region)},
-          {label:"품종", lvl:levelGrape(g.grape,ans.grapeVariety)},
-          {label:"빈티지", lvl:levelVintage(g.vintage,ans.vintage,cur.rubric?.vintageTol??2)},
-        ];
-        const hits = fields.filter(f=>f.lvl.level!=="miss"&&f.lvl.level!=="none").length;
-        const valid = fields.filter(f=>f.lvl.level!=="none").length;
-        partyScores[p].wines.push({wno,ans,g,fields,hits,valid});
-        partyScores[p].total+=valid; partyScores[p].hits+=hits;
-      }
-    }
-    const ranked = Object.entries(partyScores)
-      .filter(([,v])=>v.total>0)
-      .sort((a,b)=>b[1].hits/b[1].total - a[1].hits/a[1].total);
-    const winner = ranked[0]?.[0];
-
-    return (
-      <div style={{minHeight:"100vh",background:TH.BG,fontFamily:"system-ui,sans-serif"}}>
-        {/* Header */}
-        <div style={{background:RED,color:"#fff",padding:"14px 16px",display:"flex",alignItems:"center",gap:10}}>
-          <button onClick={()=>setView("list")} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>←</button>
-          <div style={{flex:1}}>
-            <div style={{fontSize:15,fontWeight:700}}>{cur.name}</div>
-            <div style={{fontSize:11,opacity:.8}}>🎉 Party 모드 · 와인 {cur.wineCount}종</div>
-          </div>
-          <button onClick={()=>{setActive(null);setView("list");}}
-            style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:8,padding:"5px 10px",fontSize:12,cursor:"pointer"}}>목록</button>
-        </div>
-        {cur?.accessCode&&(
-          <div style={{background:"rgba(0,0,0,.45)",padding:"6px 18px",display:"flex",alignItems:"center",gap:10}}>
-            <span style={{color:"rgba(255,255,255,.85)",fontSize:11}}>초대 코드</span>
-            <span style={{fontWeight:800,letterSpacing:3,fontSize:15,color:"#fff"}}>{cur?.accessCode}</span>
-            <button onClick={()=>{
-              const url=`${window.location.origin}?join=${cur?.accessCode}`;
-              if(navigator.share){navigator.share({title:"블라인드 테이스팅 참여",url});}
-              else{navigator.clipboard?.writeText(url).then(()=>toast("링크 복사됨!","info")).catch(()=>alert(url));}
-            }} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer",marginLeft:"auto"}}>
-              🔗 초대 링크 공유
-            </button>
-          </div>
-        )}
-
-        <div style={{padding:16,maxWidth:640,margin:"0 auto"}}>
-          {/* 오늘의 소믈리에 */}
-          {winner&&(
-            <div style={{...CS,textAlign:"center",background:"linear-gradient(135deg,#FEF3C7,#FBF4E4)",border:"2px solid #D97706",marginBottom:16}}>
-              <div style={{fontSize:32,marginBottom:4}}>👑</div>
-              <div style={{fontSize:18,fontWeight:800,color:"#92400E"}}>오늘의 소믈리에</div>
-              <div style={{fontSize:24,fontWeight:700,color:"#D97706",marginTop:4}}>{winner}</div>
-              <div style={{fontSize:12,color:"#92400E",marginTop:4}}>
-                {partyScores[winner].hits}/{partyScores[winner].total} 적중
-              </div>
-            </div>
-          )}
-
-          {/* 참가자별 카드 */}
-          {ranked.map(([p,ps])=>(
-            <div key={p} style={{...CS,marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-                {p===winner&&<span style={{fontSize:16}}>👑</span>}
-                <span style={{fontSize:16,fontWeight:700,color:TH.T1}}>{p}</span>
-                <span style={{marginLeft:"auto",fontSize:20}}>{funMsg(ps.hits,ps.total)}</span>
-              </div>
-              {ps.wines.map(({wno,ans,fields})=>(
-                <div key={wno} style={{marginBottom:10,padding:"10px",background:TH.BG,borderRadius:10}}>
-                  <div style={{fontSize:12,fontWeight:700,color:TH.T2,marginBottom:6}}>
-                    #{wno} {ans.nameKR||""}
-                  </div>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    {fields.map(({label,lvl})=>lvl.level!=="none"&&(
-                      <div key={label} style={{
-                        padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:600,
-                        background:lvl.level==="exact"?"#D1FAE5":lvl.level==="close"?"#FEF3C7":"#FEE2E2",
-                        color:lvl.level==="exact"?"#065F46":lvl.level==="close"?"#92400E":"#991B1B"
-                      }}>
-                        {emojiScore(lvl.level)} {label}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-
-          {/* 와인별 정답 공개 */}
-          {cur.revealed&&(
-            <div style={CS}>
-              <div style={{fontSize:13,fontWeight:700,color:TH.T1,marginBottom:10}}>🍾 오늘의 와인</div>
-              {Array.from({length:cur.wineCount}).map((_,i)=>{
-                const wno=i+1, ans=cur.answers?.[wno]||{};
-                return (
-                  <div key={wno} style={{display:"flex",gap:10,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${TH.BD}`}}>
-                    <span style={{fontSize:22,flexShrink:0}}>🍷</span>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:700,color:TH.T1}}>#{wno} {ans.nameKR||"?"}</div>
-                      <div style={{fontSize:11,color:TH.T2}}>{[ans.country,ans.region,ans.grapeVariety,ans.vintage].filter(Boolean).join(" · ")}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        <ToastContainer toasts={toasts}/>
-      </div>
-    );
-  }
-
-
-  async function runQualEval() {
-    if(!geminiKey){ toast("⚙️ Gemini API 키를 먼저 설정해주세요","error"); return null; }
-    const qr=active?.rubric?.qualRatio||0;
-    if(qr===0){ toast("세션 설정에서 AI 정성 평가 비율을 설정해주세요","warn"); return null; }
-
-    setQualLoading(true);
-    try {
-      const updated={...active, guesses:JSON.parse(JSON.stringify(active.guesses||{}))};
-      let totalEvaluated=0;
-
-      for(let i=0; i<active.wineCount; i++){
-        const wno=i+1;
-        const ans=active.answers[wno]||{};
-        if(!(ans.region||ans.grapeVariety)) continue;
-
-        // 이 와인에 대해 평가받을 참가자 묶기
-        const batchTargets=[];
-        for(const p of active.participants){
-          if(ans.bringer===p) continue;
-          const g=active.guesses[p]?.[wno]||{};
-          if((g.village||"").trim()||g.reason?.trim()){
-            batchTargets.push({...g, participantName:p});
-          }
-        }
-        if(batchTargets.length===0) continue;
-
-        // 와인 1병 × 전 참가자 → API 1회 호출
-        const batchResult=await callGeminiForBatchWines(geminiKey, ans, batchTargets);
-        totalEvaluated++;
-
-        if(batchResult){
-          for(const p of batchTargets.map(t=>t.participantName)){
-            const res=batchResult[p];
-            if(!res) continue;
-            const patch={...(updated.guesses[p]?.[wno]||{})};
-            if(res.village_level){
-              patch.villageAILevel=res.village_level;
-              patch.villageNote=res.village_note||"";
-            }
-            if(res.aroma!==undefined){
-              const a=Math.max(0,Math.min(8,res.aroma));
-              const s=Math.max(0,Math.min(12,res.structure));
-              const l=Math.max(0,Math.min(10,res.logic));
-              patch.aroma=a; patch.structure=s; patch.logic=l;
-              patch.qualScore=Math.round((a+s+l)/QUAL_MAX*100);
-              patch.qualFeedback=res.feedback||"";
-            }
-            if(!updated.guesses[p]) updated.guesses[p]={};
-            updated.guesses[p][wno]=patch;
-          }
-        }
-        // 와인 간 2초 대기 (무료 15 RPM 안전장치)
-        if(i<active.wineCount-1) await new Promise(r=>setTimeout(r,2000));
-      }
-
-      if(totalEvaluated===0){
-        toast("평가할 내용이 없습니다 — 참가자 추론 입력 필요","warn");
-        return null;
-      }
-      onSaveSessions([updated,...sessions.filter(s=>s.id!==updated.id)]);
-      setActive(updated);
-      toast("✅ AI 채점이 완료되었습니다!","info");
-      return updated;
-    } catch(err){
-      toast("AI 채점 오류: "+err.message,"error",5000);
-      return null;
-    } finally {
-      setQualLoading(false);
-    }
-  }
 
   // ════ SUMMARY VIEW ════
   if(view==="summary"&&cur) {
@@ -2524,7 +2341,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               const hasGuess=g.country||g.region||g.grape||g.vintage||g.village;
               if(isBringerHere) return {p, g, bringer:true};   // 출제자: 점수/메모만, 추측 채점 제외
               if(!hasGuess) return {p, skip:true};
-              return {p, g, score:scoreGuessVsAnswer(g, ans, cur.rubric, ans.depth, g.villageAILevel)};
+              return {p, g, score:scoreGuessVsAnswer(g, ans, cur.rubric, ans.depth, g.villageAILevel, (cur.participantLevels||{})[p])};
             });
             // Rank by score for this wine
             const validScored=scored.filter(s=>!s.skip&&s.score);
@@ -2537,7 +2354,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                     setUnboxed(prev=>new Set([...prev,wno]));
                     // 내 점수 확인해서 폭죽 여부 결정
                     const myGuess=cur.guesses[cur.participants[0]]?.[wno]||{};
-                    const myScore=scoreGuessVsAnswer(myGuess,ans,cur.rubric,ans.depth,myGuess.villageAILevel);
+                    const myScore=scoreGuessVsAnswer(myGuess,ans,cur.rubric,ans.depth,myGuess.villageAILevel,(cur.participantLevels||{})[cur.participants[0]]);
                     fireConfetti(myScore.pct>=60);
                   }}
                     style={{position:"absolute",inset:0,zIndex:10,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",background:"rgba(139,38,53,.15)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",borderRadius:12}}>
@@ -2675,7 +2492,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                 if(ans.bringer===p)return; // 자기가 가져온 와인은 적중률에서 제외
                 const g=cur.guesses[p]?.[wno]||{};
                 if(!(g.country||g.region||g.grape||g.vintage||g.village))return;
-                const s=scoreGuessVsAnswer(g,ans,cur.rubric,ans.depth,g.villageAILevel);
+                const s=scoreGuessVsAnswer(g,ans,cur.rubric,ans.depth,g.villageAILevel,(cur.participantLevels||{})[p]);
                 const quantPct=Math.max(0,Math.min(100,s.pct+(g.adjust||0)));
                 const qr=cur.rubric?.qualRatio||0;
                 const finalPct=(g.qualScore!==undefined&&qr>0)
