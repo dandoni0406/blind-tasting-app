@@ -2182,6 +2182,74 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   }
 
 
+  async function runQualEval(active, onSaveSessions) {
+    if(!geminiKey){ toast("⚙️ Gemini API 키를 먼저 설정해주세요","error"); return null; }
+    const qr=active?.rubric?.qualRatio||0;
+    if(qr===0){ toast("세션 설정에서 AI 정성 평가 비율을 설정해주세요","warn"); return null; }
+
+    setQualLoading(true);
+    try {
+      const updated={...active, guesses:JSON.parse(JSON.stringify(active.guesses||{}))};
+      let totalEvaluated=0;
+
+      for(let i=0; i<active.wineCount; i++){
+        const wno=i+1;
+        const ans=active.answers[wno]||{};
+        if(!(ans.region||ans.grapeVariety)) continue;
+
+        const batchTargets=[];
+        for(const p of active.participants){
+          if(ans.bringer===p) continue;
+          const g=active.guesses[p]?.[wno]||{};
+          if((g.village||"").trim()||g.reason?.trim()){
+            batchTargets.push({...g, participantName:p});
+          }
+        }
+        if(batchTargets.length===0) continue;
+
+        const batchResult=await callGeminiForBatchWines(geminiKey, ans, batchTargets);
+        totalEvaluated++;
+
+        if(batchResult){
+          for(const p of batchTargets.map(t=>t.participantName)){
+            const res=batchResult[p];
+            if(!res) continue;
+            const patch={...(updated.guesses[p]?.[wno]||{})};
+            if(res.village_level){
+              patch.villageAILevel=res.village_level;
+              patch.villageNote=res.village_note||"";
+            }
+            if(res.aroma!==undefined){
+              const a=Math.max(0,Math.min(8,res.aroma));
+              const s=Math.max(0,Math.min(12,res.structure));
+              const l=Math.max(0,Math.min(10,res.logic));
+              patch.aroma=a; patch.structure=s; patch.logic=l;
+              patch.qualScore=Math.round((a+s+l)/QUAL_MAX*100);
+              patch.qualFeedback=res.feedback||"";
+            }
+            if(!updated.guesses[p]) updated.guesses[p]={};
+            updated.guesses[p][wno]=patch;
+          }
+        }
+        if(i<active.wineCount-1) await new Promise(r=>setTimeout(r,2000));
+      }
+
+      if(totalEvaluated===0){
+        toast("평가할 내용이 없습니다 — 참가자 추론 입력 필요","warn");
+        return null;
+      }
+      onSaveSessions([updated,...sessions.filter(s=>s.id!==updated.id)]);
+      try { sessionStorage.setItem("bt-active", JSON.stringify(updated)); } catch(e) {}
+      toast("✅ AI 채점이 완료되었습니다!","info");
+      return updated;
+    } catch(err){
+      toast("AI 채점 오류: "+err.message,"error",5000);
+      return null;
+    } finally {
+      setQualLoading(false);
+    }
+  }
+
   // ════ SUMMARY VIEW ════
   if(view==="summary"&&cur) {
     // Compute average scores per wine
