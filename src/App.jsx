@@ -520,6 +520,72 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// ── 블라인드 결과 → 와인셀러 시음노트 변환 ──────────────────────
+// 와인셀러 앱의 import 형식 {wines:[], notes:[]} 으로 변환.
+// 와인셀러 "불러오기"로 합칠 수 있음. WSET 지표는 양쪽 동일 스케일.
+function blindSessionToCellarExport(session) {
+  if (!session) return { wines: [], notes: [] };
+  const wines = [];
+  const notes = [];
+  const wineCount = session.wineCount || 0;
+
+  for (let i = 0; i < wineCount; i++) {
+    const wno = i + 1;
+    const ans = session.answers?.[wno] || {};
+    const wineName = ans.nameKR || ans.nameEN || `${session.name} #${wno}`;
+    const wineId = `blind-${session.id}-${wno}`;
+    wines.push({
+      id: wineId, type: "cellar", status: "Consumed",
+      nameKR: ans.nameKR || "", nameEN: ans.nameEN || "", vintage: ans.vintage || "",
+      producer: ans.producer || "", country: ans.country || "", region: ans.region || "",
+      subRegion: ans.subRegion || "", vineyard: ans.vineyard || "",
+      classification: ans.classification || "", grapeVariety: ans.grapeVariety || "",
+      wineType: ans.wineType || "Red", bottleSize: "750ml", quantity: "1", location: "",
+      expertRatings: { bh:"",ws:"",wa:"",vinous:"",js:"",jr:"",dec:"",jm:"" },
+      terroir:{}, producerInfo:{}, vintageInfo:{}, winemaking:{}, expertNotes:[],
+      wineInsights: null, labelPhoto: "",
+      notes: `🍷 블라인드 테이스팅 "${session.name}"에서 시음`,
+      createdAt: new Date().toISOString(),
+    });
+
+    session.participants?.forEach(p => {
+      const g = session.guesses?.[p]?.[wno];
+      if (!g) return;
+      const hasContent = g.score || g.reason || g.acidity || g.tannin || g.body || g.aromas;
+      if (!hasContent) return;
+
+      const guessSummary = [
+        g.country && `국가: ${g.country}`, g.region && `지역: ${g.region}`,
+        g.village && `마을: ${g.village}`, g.grape && `품종: ${g.grape}`,
+        g.vintage && `빈티지: ${g.vintage}`,
+      ].filter(Boolean).join(" / ");
+      const correctSummary = [ans.country, ans.region, ans.subRegion, ans.grapeVariety, ans.vintage].filter(Boolean).join(" / ");
+
+      notes.push({
+        id: `blindnote-${session.id}-${wno}-${p}`,
+        wineId, wineName, vintage: ans.vintage || "", taster: p,
+        date: (session.date || new Date().toISOString()).slice(0, 10),
+        location: session.name || "",
+        withWhom: session.participants.filter(x => x !== p).join(", "),
+        foodPairing: "", decanting: "",
+        ...(g.acidity ? { acidity: g.acidity } : {}),
+        ...(g.tannin ? { tannin: g.tannin } : {}),
+        ...(g.body ? { body: g.body } : {}),
+        ...(g.aromas ? { noseAromas: g.aromas } : {}),
+        ...(g.score ? { rating: String(g.score) } : {}),
+        overallImpression: g.reason || "",
+        freeText: [
+          guessSummary && `[내 추론] ${guessSummary}`,
+          correctSummary && `[정답] ${correctSummary}`,
+          g.reason && `[근거] ${g.reason}`,
+        ].filter(Boolean).join("\n"),
+        createdAt: new Date().toISOString(),
+      });
+    });
+  }
+  return { wines, notes };
+}
+
 // ── WSET 시음 지표 (블라인드 추론용 — 술자리 빠른 입력) ──────────
 // 와인셀러 앱에서 이식·간소화: 핵심 지표만(산도/타닌/바디 + 향 칩)
 const WSET_SCALE = {
@@ -2375,6 +2441,22 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
           )}
         </div>
         <div style={{padding:16,maxWidth:640,margin:"0 auto"}}>
+          {/* 와인셀러로 내보내기 */}
+          <button onClick={()=>{
+            const data = blindSessionToCellarExport(cur);
+            if(data.notes.length===0){ toast("내보낼 시음 기록이 없습니다","warn"); return; }
+            const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `wine-cellar-import-${cur.name.replace(/\s/g,"_")}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast(`✅ 와인 ${data.wines.length}병 · 노트 ${data.notes.length}개 내보냄`,"info",4000);
+          }}
+            style={{width:"100%",background:"#2E7D32",color:"#fff",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            🍷 와인셀러 앱으로 시음노트 내보내기
+          </button>
           {/* Ranking */}
           {/* Session Photos */}
           <div style={CS}>
