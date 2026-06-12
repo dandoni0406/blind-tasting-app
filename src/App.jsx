@@ -703,7 +703,7 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
 
   function startSetup() {
     setSName(`블라인드 ${new Date().toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})}`);
-    setSCount(4); setSParts(tasters.filter(Boolean)); setSGroupId(null); setSPartyMode(false); setSAnswerMode("prefill"); setSRubric(JSON.parse(JSON.stringify(DEFAULT_RUBRIC))); setView("setup");
+    setSCount(4); setSParts(tasters.filter(Boolean)); setSGroupId(null); setSLevels({}); setSAnswerMode("prefill"); setSRubric(JSON.parse(JSON.stringify(DEFAULT_RUBRIC))); setView("setup");
   }
   function createSession() {
     const parts = sParts.filter(Boolean);
