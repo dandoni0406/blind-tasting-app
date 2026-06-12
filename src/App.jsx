@@ -49,6 +49,47 @@ function scoreLabel(pct) {
   return           {emoji:"🍇",label:"도전중",  color:"#888"};
 }
 
+// ── 공통 Gemini 호출 (재시도 + JSON모드 + thinking제어) ──────────
+// 와인셀러 앱에서 이식: 503/500 일시오류 자동 재시도(2초·4초), 429는 즉시 중단,
+// JSON 모드 강제로 파싱 안정성 확보, Flash는 thinking 꺼서 속도 개선
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
+async function geminiRequest(apiKey, parts, { maxTokens=4000 }={}) {
+  if (!apiKey) throw new Error("Gemini API 키가 없습니다");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const genConfig = {
+    maxOutputTokens: maxTokens,
+    temperature: 0.15,
+    responseMimeType: "application/json",
+    thinkingConfig: { thinkingBudget: 0 }, // Flash 계열 thinking 끔 → 속도↑
+  };
+  const body = JSON.stringify({ contents:[{ parts }], generationConfig: genConfig });
+  const sleep = ms => new Promise(res => setTimeout(res, ms));
+  let lastStatus = 0;
+  for (let attempt=0; attempt<3; attempt++) {
+    if (attempt>0) await sleep(attempt*2000); // 2초, 4초 대기
+    let r;
+    try {
+      r = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":apiKey}, body });
+    } catch(netErr) { lastStatus="network"; continue; } // 네트워크 일시 오류 → 재시도
+    if (r.ok) {
+      const d = await r.json();
+      if (d.error) throw new Error(d.error.message);
+      const text = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // JSON 파싱 (마크다운 펜스 제거 안전망)
+      const stripped = text.replace(/```json\n?|\n?```/g, "").trim();
+      try { return JSON.parse(stripped); }
+      catch(e1) { const m=stripped.match(/\{[\s\S]*\}/); if(m){ try{ return JSON.parse(m[0]); }catch(e2){} } }
+      return null;
+    }
+    if (r.status===429) throw new Error("RATE_LIMIT 429 — 한도 초과 (잠시 후 재시도)"); // 한도는 즉시 중단
+    lastStatus = r.status;
+    if (r.status>=500) continue; // 서버 일시 오류 → 재시도
+    const errText = await r.text();
+    throw new Error(`Gemini HTTP ${r.status}: ${errText.slice(0,150)}`); // 그 외 즉시 중단
+  }
+  throw new Error(`Gemini ${lastStatus} (재시도 실패)`);
+}
+
 // ── AI 라벨 스캐너 (Gemini Vision) ──────────────────────────────
 async function callGeminiVision(apiKey, imageBase64, mimeType) {
   if (!apiKey) return null;
@@ -63,24 +104,15 @@ async function callGeminiVision(apiKey, imageBase64, mimeType) {
   "classification": "등급 (예: 그랑크뤼, 1er Cru, DOC)"
 }`;
   try {
-    const r = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-      { method:"POST",
-        headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
-        body: JSON.stringify({
-          contents:[{ parts:[
-            { inline_data:{ mime_type:mimeType, data:imageBase64 } },
-            { text: prompt }
-          ]}],
-          generationConfig:{ responseMimeType:"application/json" }
-        }) }
-    );
-    if(!r.ok) { const t=await r.text(); alert("[라벨 스캔 오류] HTTP "+r.status+"\n"+t.slice(0,200)); return null; }
-    const d = await r.json();
-    if(d.error) { alert("[라벨 스캔 오류] "+d.error.message); return null; }
-    const text = d.candidates?.[0]?.content?.parts?.[0]?.text||"";
-    return text ? JSON.parse(text) : null;
-  } catch(e) { alert("라벨 스캔 오류: "+e.message); return null; }
+    return await geminiRequest(apiKey, [
+      { inline_data:{ mime_type:mimeType, data:imageBase64 } },
+      { text: prompt }
+    ], { maxTokens: 1500 });
+  } catch(e) {
+    const msg = String(e.message||e);
+    alert(msg.includes("429") ? "⏳ AI 호출 한도 초과 — 잠시 후 다시 시도하세요" : "라벨 스캔 오류: "+msg);
+    return null;
+  }
 }
 
 // ── callGeminiForBatchWines: 와인 1병 × 모든 참가자를 한 번에 평가 ──
@@ -90,11 +122,20 @@ async function callGeminiForBatchWines(apiKey, ans, batchTargets) {
   const wineInfo = [ans.nameKR||ans.nameEN, ans.country, ans.region, ans.subRegion,
     ans.grapeVariety, ans.vintage, ans.classification].filter(Boolean).join(", ");
 
-  const participantsData = batchTargets.map(g => `
+  const participantsData = batchTargets.map(g => {
+    const wset = [
+      g.acidity && `산도:${g.acidity}`,
+      g.tannin && `타닌:${g.tannin}`,
+      g.body && `바디:${g.body}`,
+      g.aromas && `향:${g.aromas}`,
+    ].filter(Boolean).join(", ");
+    return `
 [참가자: ${g.participantName}]
 마을 추측: "${g.village||""}"
+시음 지표: ${wset||"(미입력)"}
 추론 이유: "${g.reason||""}"
-`).join("\n");
+`;
+  }).join("\n");
 
   const prompt = `당신은 WSET Diploma 수준의 와인 심사위원입니다. 마크다운 없이 순수 JSON만 반환하세요.
 
@@ -109,31 +150,17 @@ ${participantsData}
 - miss: 다른 서브리전 혹은 먼 거리 (같은 품종이라는 이유만으로 근접 처리 금지)
 
 ─── 정성 평가 루브릭 (총 30점 만점) ───
-1. aroma(0~8점): 향 묘사 해상도
-2. structure(0~12점): 구조감 및 텍스처 분석 (가장 중요)
+1. aroma(0~8점): 향 묘사 해상도 (시음 지표의 향·풍미 칩 + 추론 이유 종합)
+2. structure(0~12점): 구조감 및 텍스처 분석 (시음 지표의 산도·타닌·바디가 정답 와인과 얼마나 일치하는지 가장 중요하게 평가)
 3. logic(0~10점): 묘사 기반의 논리적 결론 도출 (타당한 오답 고점 부여)
 
 반드시 "참가자 이름"을 Key로 하는 JSON 객체를 반환하세요.
 형식: {"참가자이름": {"village_level":"exact|close|miss", "village_note":"이유", "aroma":점수, "structure":점수, "logic":점수, "feedback":"평가 코멘트"}}`;
 
   try {
-    const r = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-      { method:"POST",
-        headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
-        body: JSON.stringify({
-          contents:[{parts:[{text:prompt}]}],
-          generationConfig:{responseMimeType:"application/json"}
-        }) }
-    );
-    if(!r.ok) {
-      const errText = await r.text();
-      throw new Error(`HTTP ${r.status}: ${errText.slice(0,200)}`);
-    }
-    const d = await r.json();
-    if(d.error) throw new Error(d.error.message);
-    const text = d.candidates?.[0]?.content?.parts?.[0]?.text||"";
-    return JSON.parse(text);
+    const result = await geminiRequest(apiKey, [{ text: prompt }], { maxTokens: 6000 });
+    if (!result) throw new Error("AI 응답을 파싱하지 못했습니다");
+    return result;
   } catch(e) {
     console.error("[Gemini Batch Error]:", e);
     throw e;
@@ -493,7 +520,61 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// ── 바텀시트 선택기 ───────────────────────────────────────────────
+// ── WSET 시음 지표 (블라인드 추론용 — 술자리 빠른 입력) ──────────
+// 와인셀러 앱에서 이식·간소화: 핵심 지표만(산도/타닌/바디 + 향 칩)
+const WSET_SCALE = {
+  acidity: ["낮음","중간-","중간","중간+","높음"],
+  tannin:  ["거의 없음","부드러움","중간","뻑뻑함","강함"],
+  body:    ["가벼움","다소 가벼움","중간","다소 무거움","풀바디"],
+};
+const WSET_AROMA = [
+  ["레드과실", ["딸기","라즈베리","레드체리","레드커런트"]],
+  ["블랙과실", ["블랙베리","블랙커런트","블랙체리","자두"]],
+  ["꽃·허브",  ["제비꽃","장미","민트","유칼립투스","말린꽃"]],
+  ["스파이스", ["검은후추","감초","정향","시나몬"]],
+  ["오크·숙성",["바닐라","토스트","시더","스모크","가죽","흙","버섯","담배"]],
+  ["미네랄",   ["부싯돌","젖은돌","흑연"]],
+];
+
+function WsetScale({ label, opts, value, onChange, TH, RED }) {
+  return (
+    <div style={{marginBottom:11}}>
+      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:5}}>{label}</div>
+      <div style={{display:"flex",gap:4}}>
+        {opts.map((o,i)=>{ const on=value===o; return (
+          <button key={o} onClick={()=>onChange(on?"":o)}
+            style={{flex:1,padding:"6px 1px",borderRadius:7,cursor:"pointer",border:`1px solid ${on?RED:TH.BD}`,
+              background:on?RED:TH.INP,color:on?"#fff":TH.T2,fontWeight:on?700:400,lineHeight:1.3}}>
+            <div style={{fontSize:12}}>{i+1}</div><div style={{fontSize:9}}>{o}</div>
+          </button> ); })}
+      </div>
+    </div>
+  );
+}
+
+function WsetAroma({ groups, value, onChange, TH, RED }) {
+  const sel = value||[];
+  const toggle = chip => onChange(sel.includes(chip)?sel.filter(x=>x!==chip):[...sel,chip]);
+  return (
+    <div style={{marginBottom:11}}>
+      <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:6}}>🌸 향·풍미{sel.length>0&&<span style={{color:RED}}> ({sel.length})</span>}</div>
+      {groups.map(([cat,items])=>(
+        <div key={cat} style={{marginBottom:6}}>
+          <div style={{fontSize:10,color:TH.T3,marginBottom:3}}>{cat}</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+            {items.map(name=>{ const on=sel.includes(name); return (
+              <button key={name} onClick={()=>toggle(name)}
+                style={{padding:"4px 9px",fontSize:11,borderRadius:14,cursor:"pointer",border:`1px solid ${on?RED:TH.BD}`,
+                  background:on?RED:TH.INP,color:on?"#fff":TH.T2,fontWeight:on?600:400}}>{name}</button>
+            ); })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 function BottomSheet({ config, search, onSearch, onSelect, onClose }) {
   if (!config) return null;
   const { label, options, popular } = config;
@@ -708,11 +789,14 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   function createSession() {
     const parts = sParts.filter(Boolean);
     if(parts.length===0){alert("참가자를 1명 이상 추가하세요");return;}
+    // 인덱스 기반 레벨(sLevels) → 이름 기반(participantLevels)으로 변환
+    const nameLevels = {};
+    sParts.forEach((name,i)=>{ if(name && name.trim()) nameLevels[name] = sLevels[i]||"expert"; });
     const s = {
       id:String(Date.now()), name:sName||"블라인드 테이스팅",
       date:new Date().toISOString(), participants:parts, wineCount:sCount,
       accessCode:genCode(),
-      groupId:sGroupId, participantLevels:sLevels, answerMode:sAnswerMode, rubric:sRubric,
+      groupId:sGroupId, participantLevels:nameLevels, answerMode:sAnswerMode, rubric:sRubric,
       guesses:{}, answers:{}, revealed:false, answersLocked:false, createdAt:new Date().toISOString(),
     };
     parts.forEach(p=>{s.guesses[p]={};});
@@ -1599,8 +1683,8 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
               <div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
                 <input value={p} onChange={e=>{const a=[...sParts];a[i]=e.target.value;setSParts(a);}}
                   placeholder="이름" style={{flex:1,border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none"}}/>
-                <select value={sLevels[p]||"expert"}
-                  onChange={e=>setSLevels(prev=>({...prev,[p]:e.target.value}))}
+                <select value={sLevels[i]||"expert"}
+                  onChange={e=>setSLevels(prev=>({...prev,[i]:e.target.value}))}
                   style={{border:`1px solid ${TH.BD}`,borderRadius:6,padding:"7px 6px",fontSize:11,background:TH.CARD,color:TH.T1,cursor:"pointer"}}>
                   {Object.entries(PARTICIPANT_LEVELS).map(([k,v])=>(
                     <option key={k} value={k}>{v.label}</option>
@@ -2064,6 +2148,15 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                   <input value={gval("vintage")} onChange={e=>updateGuess("vintage",e.target.value)}
                     type="number" inputMode="numeric" min="1900" max="2030" placeholder="예: 2019" style={{...IST,width:120}}/>
                 </div>
+                <div style={{marginBottom:10,paddingTop:10,borderTop:`1px dashed ${TH.BD}`}}>
+                  <div style={{fontSize:11,fontWeight:700,color:RED,marginBottom:8}}>🎯 시음 지표 <span style={{fontWeight:400,color:TH.T3}}>(톡톡 입력 — 추론 근거)</span></div>
+                  <WsetScale label="🍋 산도" opts={WSET_SCALE.acidity} value={gval("acidity")} onChange={v=>updateGuess("acidity",v)} TH={TH} RED={RED}/>
+                  <WsetScale label="🍷 타닌" opts={WSET_SCALE.tannin} value={gval("tannin")} onChange={v=>updateGuess("tannin",v)} TH={TH} RED={RED}/>
+                  <WsetScale label="💪 바디" opts={WSET_SCALE.body} value={gval("body")} onChange={v=>updateGuess("body",v)} TH={TH} RED={RED}/>
+                  <WsetAroma groups={WSET_AROMA}
+                    value={(gval("aromas")||"").split(",").map(s=>s.trim()).filter(Boolean)}
+                    onChange={arr=>updateGuess("aromas",arr.join(", "))} TH={TH} RED={RED}/>
+                </div>
                 <div style={{marginBottom:0}}>
                   <div style={{fontSize:11,fontWeight:600,color:RED,marginBottom:4}}>💭 이렇게 픽한 이유 <span style={{fontWeight:400,color:TH.T3}}>(선택)</span></div>
                   <textarea value={cur.guesses[p_]?.[wno_]?.reason||""} onChange={e=>updateGuess("reason",e.target.value)}
@@ -2518,6 +2611,16 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                         {g.grape&&<Tag lvl={score.grape} label={g.grape}/>}
                         {g.vintage&&<Tag lvl={score.vintage} label={g.vintage}/>}
                       </div>
+                      {(g.acidity||g.tannin||g.body||g.aromas)&&(
+                        <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>
+                          {[["산",g.acidity],["탄",g.tannin],["바",g.body]].filter(([,v])=>v).map(([k,v])=>(
+                            <span key={k} style={{fontSize:10,background:TH.CARD2,color:TH.T2,borderRadius:4,padding:"1px 6px"}}>{k} {v}</span>
+                          ))}
+                          {g.aromas&&g.aromas.split(",").map(s=>s.trim()).filter(Boolean).slice(0,4).map((a,i)=>(
+                            <span key={i} style={{fontSize:10,background:"#FBF1F3",color:RED,borderRadius:4,padding:"1px 6px"}}>{a}</span>
+                          ))}
+                        </div>
+                      )}
                       {g.reason&&<div style={{fontSize:11,color:TH.T2,fontStyle:"italic",lineHeight:1.4,marginTop:3}}>💭 {g.reason}</div>}
                       {g.qualScore!==undefined&&(
                         <div style={{marginTop:6,background:"#F0FBF0",borderRadius:6,padding:"8px 10px"}}>
