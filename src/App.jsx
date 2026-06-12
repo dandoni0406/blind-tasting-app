@@ -709,6 +709,9 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
   const [showGroupMgr, setShowGroupMgr] = useState(false);
   const [showRubric, setShowRubric] = useState(false);
   const [scanningWno, setScanningWno] = useState(null);
+  const [cellarWines, setCellarWines] = useState([]); // 와인셀러에서 불러온 와인 목록
+  const [cellarPickWno, setCellarPickWno] = useState(null); // 셀러 선택 모달 대상 와인번호
+  const [cellarSearch, setCellarSearch] = useState("");
   const [unboxed, setUnboxed] = useState(new Set()); // 공개된 와인 번호
 
   function fireConfetti(good=false) {
@@ -2063,7 +2066,33 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
                       }}/>}
                   </label>
                 </div>
-                {/* 와인 이름 (정답에만 있음) */}
+                {/* 🍷 와인셀러에서 가져오기 */}
+                <div style={{marginBottom:12}}>
+                  {cellarWines.length===0 ? (
+                    <label style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#F0FDF4",border:"1px dashed #2E7D32",borderRadius:10,cursor:"pointer",justifyContent:"center"}}>
+                      <span style={{fontSize:18}}>🍷</span>
+                      <span style={{fontSize:13,fontWeight:600,color:"#2E7D32"}}>와인셀러 파일에서 가져오기</span>
+                      <input type="file" accept=".json" style={{display:"none"}}
+                        onChange={async(e)=>{
+                          const file=e.target.files?.[0]; if(!file) return;
+                          try{
+                            const text=await file.text();
+                            const data=JSON.parse(text);
+                            const list=(data.wines||[]).filter(w=>w.nameKR||w.nameEN);
+                            if(list.length===0){ toast("와인 데이터를 찾지 못했습니다","warn"); }
+                            else { setCellarWines(list); setCellarPickWno(wno); toast(`✅ 셀러 와인 ${list.length}병 불러옴`,"info"); }
+                          }catch(err){ toast("파일을 읽지 못했습니다 (JSON 형식 확인)","error"); }
+                          e.target.value="";
+                        }}/>
+                    </label>
+                  ) : (
+                    <button onClick={()=>{setCellarPickWno(wno);setCellarSearch("");}}
+                      style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#F0FDF4",border:"1px solid #2E7D32",borderRadius:10,cursor:"pointer",justifyContent:"center"}}>
+                      <span style={{fontSize:18}}>🍷</span>
+                      <span style={{fontSize:13,fontWeight:600,color:"#2E7D32"}}>셀러에서 와인 선택 ({cellarWines.length}병)</span>
+                    </button>
+                  )}
+                </div>
                 <div style={{marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:600,color:TH.T2,marginBottom:4}}>와인 이름</div>
                   <input value={ans.nameKR||""} onChange={e=>updateAnswer(wno,"nameKR",e.target.value)} placeholder="예: 오퍼스 원, 샤토 마고"
@@ -2098,6 +2127,61 @@ function BlindTastingPage({ sessions, onSaveSessions, groups=[], onSaveGroups, o
             🔒 정답 잠금 & 시음 시작 →
           </button>
           {!allFilled&&<div style={{fontSize:11,color:TH.T3,textAlign:"center",marginTop:8}}>모든 와인의 정보를 입력해주세요</div>}
+        {/* 🍷 셀러 와인 선택 모달 */}
+        {cellarPickWno!==null&&(
+          <div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}
+            onClick={e=>{if(e.target===e.currentTarget)setCellarPickWno(null);}}>
+            <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)"}} onClick={()=>setCellarPickWno(null)}/>
+            <div style={{position:"relative",background:"#fff",borderRadius:"20px 20px 0 0",maxHeight:"80vh",display:"flex",flexDirection:"column",paddingTop:12}}>
+              <div style={{width:40,height:4,borderRadius:2,background:"#ddd",margin:"0 auto 12px"}}/>
+              <div style={{padding:"0 16px 8px",fontWeight:700,fontSize:14,color:"#333"}}>🍷 #{cellarPickWno} 와인 — 셀러에서 선택</div>
+              <div style={{padding:"0 16px 10px"}}>
+                <input autoFocus value={cellarSearch} onChange={e=>setCellarSearch(e.target.value)}
+                  placeholder="이름·생산자·지역 검색..."
+                  style={{width:"100%",border:"1px solid #eee",borderRadius:10,padding:"10px 14px",fontSize:14,outline:"none",boxSizing:"border-box",background:"#f7f4f0"}}/>
+              </div>
+              <div style={{overflowY:"auto",padding:"0 16px 24px",flex:1}}>
+                {(()=>{
+                  const q=cellarSearch.trim().toLowerCase();
+                  const list=cellarWines.filter(w=>{
+                    if(!q) return true;
+                    return [w.nameKR,w.nameEN,w.producer,w.region,w.country].filter(Boolean).join(" ").toLowerCase().includes(q);
+                  }).slice(0,80);
+                  if(list.length===0) return <div style={{textAlign:"center",color:"#aaa",padding:24}}>결과 없음</div>;
+                  return list.map(w=>(
+                    <button key={w.id} onClick={()=>{
+                      const wno=cellarPickWno;
+                      if(w.nameKR) updateAnswer(wno,"nameKR",w.nameKR);
+                      if(w.nameEN) updateAnswer(wno,"nameEN",w.nameEN);
+                      if(w.country) updateAnswer(wno,"country",w.country);
+                      if(w.region) updateAnswer(wno,"region",w.region);
+                      if(w.subRegion) updateAnswer(wno,"subRegion",w.subRegion);
+                      if(w.vineyard) updateAnswer(wno,"vineyard",w.vineyard);
+                      if(w.producer) updateAnswer(wno,"producer",w.producer);
+                      if(w.wineType) updateAnswer(wno,"wineType",w.wineType);
+                      if(w.vintage) updateAnswer(wno,"vintage",String(w.vintage).replace(/[^0-9]/g,""));
+                      // 품종 정규화 (셀러 품종명 → 칩 매칭)
+                      if(w.grapeVariety){
+                        const allChips=[...GRAPE_CATEGORIES.red,...GRAPE_CATEGORIES.white];
+                        const matched=w.grapeVariety.split(/[,/·&]/).map(g=>{
+                          const noSpace=g.trim().replace(/\s/g,"");
+                          return allChips.find(ch=>ch===noSpace||ch.replace(/[/]/g,"")===noSpace)||g.trim();
+                        }).filter(Boolean);
+                        updateAnswer(wno,"grapeVariety",matched.join(", "));
+                      }
+                      setCellarPickWno(null); setCellarSearch("");
+                      toast("✅ 셀러 와인 정보 입력됨","info");
+                    }}
+                      style={{display:"block",width:"100%",textAlign:"left",padding:"11px 8px",border:"none",borderBottom:"1px solid #f7f4f0",background:"none",cursor:"pointer"}}>
+                      <div style={{fontSize:14,fontWeight:600,color:"#333"}}>{w.nameKR||w.nameEN}{w.vintage?<span style={{color:"#9A7020",fontWeight:700}}> {w.vintage}</span>:null}</div>
+                      <div style={{fontSize:12,color:"#888",marginTop:2}}>{[w.producer,w.region,w.country].filter(Boolean).join(" · ")}</div>
+                    </button>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
         <ToastContainer toasts={toasts}/>
         {confirmModal&&<ConfirmModal {...confirmModal}/>}
         </div>
